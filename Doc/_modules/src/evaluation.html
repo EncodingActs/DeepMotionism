@@ -1,0 +1,702 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.evaluation &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="../../_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.evaluation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.evaluation</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.deepArchitecture</span> <span class="kn">import</span> <span class="n">initialize_model</span><span class="p">,</span> <span class="n">transform_data</span><span class="p">,</span> <span class="n">build_batch</span>
+<span class="kn">from</span> <span class="nn">.dataPreparation</span> <span class="kn">import</span> <span class="n">data_preparation</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">sklearn</span> <span class="kn">import</span> <span class="n">cluster</span><span class="p">,</span> <span class="n">metrics</span>
+<span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">OneHotEncoder</span>
+<span class="kn">from</span> <span class="nn">sklearn.multiclass</span> <span class="kn">import</span> <span class="n">OneVsRestClassifier</span>
+<span class="kn">from</span> <span class="nn">sklearn.svm</span> <span class="kn">import</span> <span class="n">SVC</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">cross_validate</span><span class="p">,</span><span class="n">RepeatedKFold</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">pandas</span> <span class="kn">import</span> <span class="n">read_csv</span>
+<span class="kn">from</span> <span class="nn">sklearn.decomposition</span> <span class="kn">import</span> <span class="n">PCA</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial.distance</span> <span class="kn">import</span> <span class="n">pdist</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">wasserstein_distance</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+
+<div class="viewcode-block" id="evaluation"><a class="viewcode-back" href="../../evaluation.html#src.evaluation.evaluation">[docs]</a><span class="k">def</span> <span class="nf">evaluation</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data_object</span><span class="p">,</span>
+               <span class="n">transformer</span><span class="p">,</span> 
+               <span class="n">embedding_dimension</span> <span class="p">,</span> <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+               <span class="n">do_ts_images</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span><span class="n">is_inception</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">saving_file_ending</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function maps the motion words to their embeddings. Hence, it computes the embeddings that it will save.</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    model : pytorch neural network model</span>
+<span class="sd">        </span>
+<span class="sd">    data_object : data_preparation</span>
+<span class="sd">        This is an instance of the class data_preparation. </span>
+<span class="sd">        It should contain all the motion words so be sure to have them.You can run &#39;data_object.load_motion_word_dataset(path)&#39;</span>
+<span class="sd">        </span>
+<span class="sd">    transformer : function</span>
+<span class="sd">        This is the function that transforms the input to meet the network requirement.</span>
+<span class="sd">        </span>
+<span class="sd">    embedding_dimension : int</span>
+<span class="sd">                </span>
+<span class="sd">    batch_size : int, optional</span>
+<span class="sd">        The default is 100.</span>
+<span class="sd">        </span>
+<span class="sd">    do_ts_images : boolen, optional</span>
+<span class="sd">        States if the motion words should be transformed into images. The default is False.</span>
+<span class="sd">        </span>
+<span class="sd">    is_inception : boolean, optional</span>
+<span class="sd">        States if the backbone is an inception model. The default is False.</span>
+<span class="sd">    </span>
+<span class="sd">    saving_file_ending : string or None, optional</span>
+<span class="sd">        The embeddings will be saved at &#39;./../data/embeddings&#39; if None. Otherwise, it will be &#39;./../data/embeddings_saving_file_ending&#39; .</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1">#--Setting up model parameters</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    
+    <span class="c1">#---Evaluation</span>
+    <span class="n">all_names</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">dataloader</span> <span class="o">=</span> <span class="n">data_object</span><span class="o">.</span><span class="n">motion_word_dataset</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">dataloader</span><span class="p">),</span><span class="n">embedding_dimension</span><span class="p">))</span> <span class="c1">#((len(dataloader), embedding_dimension))</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>   
+                 
+    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">dataloader</span><span class="p">),</span> <span class="n">batch_size</span><span class="p">):</span>
+        
+        <span class="n">data</span><span class="p">,</span> <span class="n">motion_names</span> <span class="o">=</span> <span class="n">build_batch</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">data_object</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="s1">&#39;eval&#39;</span><span class="p">,</span> <span class="n">do_ts_images</span><span class="p">)</span>
+
+        <span class="c1">#--Data transform</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">do_ts_images</span> <span class="ow">or</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">data</span>  <span class="o">=</span>  <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        
+        <span class="k">else</span> <span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">transformer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">())</span>
+        
+        <span class="c1">#--Forward pass</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">is_inception</span><span class="p">:</span>
+                
+                <span class="n">outputs</span><span class="p">,</span> <span class="n">aux_outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                
+            <span class="k">else</span> <span class="p">:</span>
+                
+                <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                
+        <span class="c1">#--Motion names       </span>
+        <span class="n">all_names</span> <span class="o">=</span> <span class="n">all_names</span> <span class="o">+</span> <span class="n">motion_names</span>
+        
+        <span class="c1">#--Embeddings</span>
+        <span class="n">embeddings</span><span class="p">[</span><span class="n">b</span><span class="p">:</span><span class="n">b</span><span class="o">+</span><span class="n">batch_size</span><span class="p">]</span> <span class="o">=</span> <span class="n">outputs</span>
+        
+        <span class="n">count</span> <span class="o">+=</span> <span class="n">batch_size</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> The process is at : </span><span class="si">{</span><span class="mi">100</span><span class="o">*</span><span class="n">count</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">dataloader</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+        
+        <span class="c1">#---Updating the    </span>
+        <span class="k">for</span> <span class="n">indx</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">motion_names</span><span class="p">):</span>
+            <span class="n">output</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">outputs</span><span class="p">[</span><span class="n">indx</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+    
+    <span class="c1">#--------- saving</span>
+    <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;./../data/embeddings_</span><span class="si">{</span><span class="n">saving_file_ending</span><span class="si">}</span><span class="s1">&#39;</span><span class="k">if</span> <span class="n">saving_file_ending</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39;./../data/embeddings&#39;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Saving the embeddings at </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span><span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span> <span class="p">:</span>
+        <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">output</span><span class="p">,</span><span class="n">file</span><span class="p">)</span>
+        
+    <span class="k">return</span> <span class="kc">None</span> </div>
+
+
+<div class="viewcode-block" id="cluster_dataset"><a class="viewcode-back" href="../../evaluation.html#src.evaluation.cluster_dataset">[docs]</a><span class="k">def</span> <span class="nf">cluster_dataset</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">motion_names</span><span class="p">,</span><span class="n">num_clusters</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span><span class="n">display_silhouette_score</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function will compute the clusters in the datasets using kmeans algorithm.</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    embeddings : 2D numpy array</span>
+<span class="sd">        It represents all the motion words embeddings.</span>
+<span class="sd">    </span>
+<span class="sd">    motion_names : list of strings</span>
+<span class="sd">        A list of the motion words names with the same ordering as the embeddings i.e embeddings[k] is linked to motion_names[k]</span>
+<span class="sd">                </span>
+<span class="sd">    num_clusters : int, optional</span>
+<span class="sd">        Number of clusters to compute. The default is 200.</span>
+<span class="sd">        </span>
+<span class="sd">    display_silhouette_score : boolean, optional</span>
+<span class="sd">        The default is True.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    names_and_assignments : dictionary</span>
+<span class="sd">        It maps all the motion words to the cluster they are assigned to.</span>
+<span class="sd">        </span>
+<span class="sd">    size_of_clusters : list</span>
+<span class="sd">        This list gives the number of motion words assigned to each cluster i.e size_of_clusters[k] give the number of assignements to the cluster k.</span>
+<span class="sd">        </span>
+<span class="sd">    centers : numpy arrays</span>
+<span class="sd">        It stores the cluster centers.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+        
+    <span class="c1">#----Kmeans</span>
+    <span class="n">kmeans_mini_batch</span> <span class="o">=</span> <span class="n">cluster</span><span class="o">.</span><span class="n">MiniBatchKMeans</span><span class="p">(</span><span class="n">n_clusters</span> <span class="o">=</span> <span class="n">num_clusters</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+    
+    <span class="c1">#----Retrieve cluster assignments</span>
+    <span class="n">assignments</span> <span class="o">=</span> <span class="n">kmeans_mini_batch</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    
+    <span class="c1">#---Retrieve cluster centers</span>
+    <span class="n">centers</span> <span class="o">=</span> <span class="n">kmeans_mini_batch</span><span class="o">.</span><span class="n">cluster_centers_</span>
+    
+    <span class="c1">#---Compute size of clusters</span>
+    <span class="n">size_of_clusters</span> <span class="o">=</span> <span class="p">[</span><span class="n">assignments</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">)]</span>
+    
+    <span class="c1">#---Compute silhouette scores</span>
+    <span class="n">silhouette_scores</span> <span class="o">=</span> <span class="n">metrics</span><span class="o">.</span><span class="n">silhouette_samples</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">assignments</span><span class="p">)</span>
+                   
+    <span class="c1">#---Updating output dictionary</span>
+    <span class="n">names_and_assignments</span> <span class="o">=</span> <span class="p">{</span><span class="n">motion_names</span><span class="p">[</span><span class="n">indx</span><span class="p">]:</span><span class="n">assign</span> <span class="k">for</span> <span class="n">indx</span><span class="p">,</span> <span class="n">assign</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">assignments</span><span class="p">)</span> <span class="p">}</span> 
+    
+    <span class="k">if</span> <span class="n">display_silhouette_score</span> <span class="p">:</span>
+        
+        <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span><span class="mi">15</span><span class="p">)</span> <span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">silhouette_scores</span><span class="p">,</span><span class="s1">&#39;*b&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;word motion indice&#39;</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Score&#39;</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">silhouette_scores</span><span class="p">,</span><span class="n">width</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;word motion indice&#39;</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Score&#39;</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Silhouette scores&#39;</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        
+       
+        
+    <span class="k">return</span> <span class="n">names_and_assignments</span> <span class="p">,</span> <span class="n">size_of_clusters</span> <span class="p">,</span> <span class="n">centers</span><span class="p">,</span> <span class="n">kmeans_mini_batch</span></div>
+
+
+<div class="viewcode-block" id="motion_signatures"><a class="viewcode-back" href="../../evaluation.html#src.evaluation.motion_signatures">[docs]</a><span class="k">def</span> <span class="nf">motion_signatures</span><span class="p">(</span><span class="n">data_object_embeddings</span><span class="p">,</span>
+                      <span class="n">num_clusters</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+                      <span class="n">plot_embeddings</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                      <span class="n">plot_signatures</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                      <span class="n">plot_pairwise_distances</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                      <span class="n">names_and_assignments</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                      <span class="n">size_of_clusters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                      <span class="n">cluster_centers</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                      <span class="n">sequence_decomposition</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Computes the motion signatures of the motion sequences in the database. It can plot the embeddings and signatures if requested.</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    data_object_embeddings : data_preparation</span>
+<span class="sd">        This is an instance of the class data_preparation that has the embedding values stored at &quot;data_object_embeddings.motion_word_dataset&quot;.</span>
+<span class="sd">     </span>
+<span class="sd">    num_clusters : int, optional</span>
+<span class="sd">        Number of clusters to compute. The default is 200.</span>
+<span class="sd">        </span>
+<span class="sd">    plot_embeddings : boolean, optional</span>
+<span class="sd">        If False, we run PCA on the embeddings and plot motion words along with the cluster center. The default is False.</span>
+<span class="sd">        </span>
+<span class="sd">    plot_signatures : boolean, optional</span>
+<span class="sd">        The default is False.</span>
+<span class="sd">        </span>
+<span class="sd">    plot_pairwise_distances : TYPE, optional</span>
+<span class="sd">        It will plot the pairwise distance between the motion signatures.The wasserstein distance or &quot;earth mover distance&quot; is used. The default is False.</span>
+<span class="sd">        </span>
+<span class="sd">    names_and_assignments : dictionary, optional</span>
+<span class="sd">        It maps all the motion words to the cluster they are assigned to. The default is None.</span>
+<span class="sd">        </span>
+<span class="sd">    size_of_clusters : list of ints</span>
+<span class="sd">        This list gives the number of motion words assigned to each cluster i.e size_of_clusters[k] give the number of assignements to the cluster k.</span>
+<span class="sd">       </span>
+<span class="sd">    cluster_centers : numpy arrays, optional</span>
+<span class="sd">        The default is None.</span>
+<span class="sd">        </span>
+<span class="sd">    sequence_decomposition : dictionary, optional</span>
+<span class="sd">        By default, &quot;sequence_decomposition = data_object_embeddings.mapping_Of_motionWordsNames&quot;. The default is None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sequences_signatures : dictionary</span>
+<span class="sd">        It maps each sequence to its computed signature.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">#----</span>
+    <span class="n">sequences_signatures</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">all_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">data_object_embeddings</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+    <span class="c1">#--Computing clusters if necessary</span>
+    <span class="n">condition</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="p">[</span><span class="n">names_and_assignments</span><span class="p">,</span> <span class="n">size_of_clusters</span><span class="p">,</span> <span class="n">cluster_centers</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>  <span class="p">:</span>
+        <span class="n">all_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">data_object_embeddings</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">embeddings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">data_object_embeddings</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        
+        <span class="n">names_and_assignments</span> <span class="p">,</span> <span class="n">size_of_clusters</span> <span class="p">,</span> <span class="n">cluster_centers</span><span class="p">,</span> <span class="n">_</span>  <span class="o">=</span> <span class="n">cluster_dataset</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span>
+                                                                              <span class="n">motion_names</span> <span class="o">=</span>  <span class="n">all_names</span><span class="p">,</span> 
+                                                                              <span class="n">num_clusters</span> <span class="o">=</span> <span class="n">num_clusters</span><span class="p">)</span>
+    
+    <span class="c1">#--Loading the context</span>
+    <span class="c1">#data_object_embeddings.load_motion_words_context()</span>
+    <span class="k">if</span> <span class="n">sequence_decomposition</span> <span class="ow">is</span> <span class="kc">None</span> <span class="p">:</span>
+        <span class="n">sequence_decomposition</span> <span class="o">=</span> <span class="n">data_object_embeddings</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span>
+        
+      
+    <span class="c1">#--Inverse document frequency function</span>
+    <span class="n">idf</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_names</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">size_of_clusters</span><span class="p">[</span><span class="n">x</span><span class="p">])</span> <span class="p">)</span>
+    
+       
+    <span class="c1">#--Computing all sequences signatures in the dataset</span>
+    <span class="c1">#count = 0</span>
+    <span class="k">for</span> <span class="n">sequence_name</span> <span class="p">,</span> <span class="n">motions_in_sequence</span> <span class="ow">in</span> <span class="n">sequence_decomposition</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1">#count += 1 </span>
+        
+        <span class="c1">#Fetching the clusters assignments of the motion words of this sequence</span>
+        <span class="n">assignments</span> <span class="o">=</span> <span class="p">[</span> <span class="n">names_and_assignments</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">motions_in_sequence</span> <span class="p">]</span>
+                        
+        <span class="c1">#--Computing the signature of the sequence    </span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="p">[</span><span class="n">idf</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">*</span><span class="n">assignments</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">motions_in_sequence</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">)]</span>
+                    
+        <span class="c1">#--Updating</span>
+        <span class="n">sequences_signatures</span><span class="p">[</span><span class="n">sequence_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">signature</span><span class="p">)</span>
+        
+        <span class="c1">#if count % 50 == 0 :</span>
+            <span class="c1">#print(f&quot;Signature computing progress is : {100*count/len(sequence_decomposition):0.2f} %.&quot;)</span>
+               
+    
+       
+    <span class="c1">#--------------------------------Plotting---------------------------------------------------------------------</span>
+    <span class="k">if</span> <span class="n">plot_signatures</span><span class="p">:</span>
+        
+        <span class="n">labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sequences_signatures</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">num_cols</span> <span class="o">=</span> <span class="mi">4</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">4</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="n">num_rows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="o">//</span><span class="mi">4</span> 
+        <span class="n">num_rows</span> <span class="o">=</span> <span class="n">num_rows</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="o">%</span><span class="mi">4</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span>  <span class="n">num_rows</span> 
+        
+        <span class="n">fig</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span><span class="n">num_cols</span><span class="p">,</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span><span class="mi">60</span><span class="p">))</span><span class="c1">#,constrained_layout=True)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">(</span><span class="n">pad</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
+        
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;There are </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s1"> signatures to be plotted. &#39;</span><span class="p">)</span>
+        
+        <span class="k">for</span> <span class="n">indx</span><span class="p">,</span><span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">labels</span><span class="p">):</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span><span class="n">num_cols</span><span class="p">,</span><span class="n">indx</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">),</span><span class="n">sequences_signatures</span><span class="p">[</span><span class="n">label</span><span class="p">],</span><span class="n">width</span><span class="o">=</span><span class="mf">0.35</span><span class="p">)</span> <span class="c1">#ax[indx%num_rows,indx%num_cols]</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">label</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Frequency&#39;</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Cluster indice&#39;</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        
+    <span class="k">if</span> <span class="n">plot_embeddings</span><span class="p">:</span>
+        
+        <span class="n">pca</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">pca</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span>
+        <span class="n">cluster_centers</span> <span class="o">=</span> <span class="n">pca</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">cluster_centers</span><span class="p">)</span>
+                
+        <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span><span class="n">data</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span><span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;g&#39;</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="s1">&#39;Data&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">cluster_centers</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span><span class="n">cluster_centers</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span><span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="s1">&#39;cluster centers&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Embeddings&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        
+    <span class="k">if</span> <span class="n">plot_pairwise_distances</span> <span class="p">:</span>
+        
+        <span class="c1">#--Computing the earth mover distances between the sequences</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">sequences_signatures</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="n">cluster_densities</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">idf</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clusters</span><span class="p">)]</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">:</span> <span class="n">wasserstein_distance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span> <span class="n">u_weights</span><span class="o">=</span> <span class="n">cluster_densities</span><span class="p">,</span><span class="n">v_weights</span><span class="o">=</span><span class="n">cluster_densities</span><span class="p">)</span>
+        <span class="n">distances</span> <span class="o">=</span> <span class="n">pdist</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">func</span><span class="p">)</span> 
+        <span class="c1">#-----</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">boxplot</span><span class="p">(</span><span class="n">distances</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Pairwise distance - Earth mover distance&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        
+    <span class="k">return</span> <span class="n">sequences_signatures</span></div>
+
+
+<div class="viewcode-block" id="embedding_quality_assessment_OneVsRest"><a class="viewcode-back" href="../../evaluation.html#src.evaluation.embedding_quality_assessment_OneVsRest">[docs]</a><span class="k">def</span> <span class="nf">embedding_quality_assessment_OneVsRest</span><span class="p">(</span><span class="n">signatures_dict</span><span class="p">,</span>
+                                           <span class="n">path_meta_data</span><span class="o">=</span><span class="s1">&#39;./../data/csv/metadata/metadata_train.csv&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function runs a 7-fold cross validation using a OneVsRest strategy to assess the quality of the computed embeddings.</span>
+<span class="sd">    It uses sklearn OneVsRest classifier : https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html .</span>
+<span class="sd">    \nNB : be carefull when using the function as it assumes that the file names provided in the metadata are similar to the bvh and video file names. </span>
+<span class="sd">    In addition, one should have these three headers [&#39;kungfu_style_1&#39;,&#39;kungfu_style_2&#39;,&#39;weapon&#39;,&#39;master&#39;]. In case there are many kungFu styles per videos, new columns should be created hence &#39;kungfu_style_1&#39;,&#39;kungfu_style_2&#39;.</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    signatures_dict : dictionary</span>
+<span class="sd">        A dictionary mapping sequences to their signatures.</span>
+<span class="sd">        </span>
+<span class="sd">    path_meta_data : string, optional</span>
+<span class="sd">        path to metadata of the sequences. The default is &#39;./../data/csv/metadata/metadata_train.csv&#39;.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1">#---Reading the metadata</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">read_csv</span><span class="p">(</span><span class="n">path_meta_data</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">sep</span><span class="o">=</span><span class="s1">&#39;;&#39;</span><span class="p">,</span><span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+    
+    <span class="c1">#---Renaming the filenames to match the sequence&#39;s</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">renaming</span> <span class="o">=</span> <span class="nb">str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;filename&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">sep</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;_rot&#39;</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="s1">&#39;filename&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">renaming</span>
+        
+    <span class="c1">#---Changing the indexing --&gt; indexing by filename</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;./../data/csv/metadata/metadata_modified.csv&#39;</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;./../data/csv/metadata/metadata_modified.csv&#39;</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">sep</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">,</span><span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">,</span><span class="n">index_col</span><span class="o">=</span><span class="s1">&#39;filename&#39;</span><span class="p">)</span>
+
+    <span class="c1">#---Fetching interesting columns</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;kungfu_style_1&#39;</span><span class="p">,</span><span class="s1">&#39;kungfu_style_2&#39;</span><span class="p">,</span><span class="s1">&#39;weapon&#39;</span><span class="p">,</span><span class="s1">&#39;master&#39;</span><span class="p">]</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">labels</span><span class="p">]</span>
+    
+    <span class="c1">#---Initializing the onehot encoder</span>
+    <span class="n">encoder</span> <span class="o">=</span> <span class="n">OneHotEncoder</span><span class="p">(</span><span class="n">sparse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="c1">#---Stacking the signature values</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">signatures_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+   
+    <span class="c1">#---Running the cross validation for each label using OneVsRest classifier</span>
+    <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">labels</span> <span class="p">:</span>
+        
+        <span class="n">y</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="o">*</span><span class="mi">50</span><span class="p">,</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Label --&gt; &#39;</span><span class="p">,</span><span class="n">label</span><span class="p">,</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        
+        <span class="c1">#---Fetching the class of each sequence for a given label</span>
+        <span class="k">for</span> <span class="n">sequence_name</span> <span class="ow">in</span> <span class="n">signatures_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">sequence_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">sep</span><span class="o">=</span><span class="s1">&#39;+&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1">#--In case we have subsequences that ende with &#39;+sub_k&#39;</span>
+            <span class="n">dummy</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">label</span><span class="p">]</span>
+            <span class="n">y</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">dummy</span><span class="p">])</span>  
+        
+        <span class="c1">#---Encoding categorial data in y</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">encoder</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        
+        <span class="c1">#---Setting the scoring methods</span>
+        <span class="n">scoring</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;f1_micro&#39;</span><span class="p">,</span><span class="s1">&#39;recall_micro&#39;</span><span class="p">,</span><span class="s1">&#39;accuracy&#39;</span><span class="p">]</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="n">RepeatedKFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span><span class="n">random_state</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        
+        <span class="c1">#---loading classifier</span>
+        <span class="c1">#kernels can &#39;rbf&#39; , &#39;linear&#39; , &#39;poly&#39;, &#39;sigmoid&#39;</span>
+        <span class="n">classifier</span> <span class="o">=</span> <span class="n">OneVsRestClassifier</span><span class="p">(</span><span class="n">SVC</span><span class="p">(</span><span class="n">kernel</span><span class="o">=</span><span class="s1">&#39;rbf&#39;</span><span class="p">,</span> <span class="n">C</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span><span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        
+        <span class="c1">#---Computing cross validation scores and printings</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="n">cross_validate</span><span class="p">(</span><span class="n">classifier</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv</span><span class="p">,</span><span class="n">scoring</span><span class="o">=</span><span class="n">scoring</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">scores</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;fit_time&#39;</span><span class="p">,</span><span class="s1">&#39;score_time&#39;</span><span class="p">]</span> <span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%0.2f</span><span class="s2"> score with a standard deviation of </span><span class="si">%0.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">scores</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">scores</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">()),</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+     
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="embedding_quality_assessment_similarityFuncVsNN"><a class="viewcode-back" href="../../evaluation.html#src.evaluation.embedding_quality_assessment_similarityFuncVsNN">[docs]</a><span class="k">def</span> <span class="nf">embedding_quality_assessment_similarityFuncVsNN</span><span class="p">(</span><span class="n">motion_word_dataset</span><span class="p">,</span>
+                                                    <span class="n">data_object_embedding</span><span class="p">,</span>
+                                                    <span class="n">similarityFunc</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;dtw&#39;</span><span class="p">,</span><span class="s1">&#39;soft_dtw&#39;</span><span class="p">,</span><span class="s1">&#39;gak&#39;</span><span class="p">],</span>
+                                                    <span class="n">plot_title</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+                                                    <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;train&#39;</span><span class="p">,</span>
+                                                    <span class="n">assessment_method</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span>
+                                                    <span class="n">include_noisy_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Embedding quality assessment by comparison with a similarity function.\n</span>
+<span class="sd">    For simplicity, we load training/testing datasets and we check how well the embeddings perform to separate positive samples from negative samples.</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    motion_word_dataset : dictionary</span>
+<span class="sd">        It is a dictionary that maps motion words to their values.</span>
+<span class="sd">        </span>
+<span class="sd">    data_object_embedding : data_preparation</span>
+<span class="sd">        An instance of data_preparation that has the embeddings at &#39;data_object_embedding.motion_word_dataset&#39;.</span>
+
+<span class="sd">    similarityFunc : list of strings, optional</span>
+<span class="sd">        The name of the similarity function to consider. The allowed values are : &#39;gak&#39;,&#39;soft_dtw&#39;,&#39;dtw&#39;. The default is [&#39;dtw&#39;,&#39;soft_dtw&#39;,&#39;gak&#39;].</span>
+<span class="sd">    </span>
+<span class="sd">    mode : string, optional</span>
+<span class="sd">        This states wheter the embedding quality should be assessed on the &quot;training&quot; or &quot;testing dataset&quot;. The default is &quot;train&quot;.</span>
+<span class="sd">    </span>
+<span class="sd">    assessment_method : string, optional</span>
+<span class="sd">        States which assessment method should be used. It can be &#39;mean&#39; or &#39;coefvar&#39;. &#39;coefvar&#39; stands for &#39;coefficients of variation&#39; that is equal to the standard deviation divided by the mean. Here we divide by &#39;1 + mean &#39; to avoid having zeros as denominators.</span>
+<span class="sd">    </span>
+<span class="sd">    include_noisy_data : boolean, optional</span>
+<span class="sd">        It states if the noisy data should be considered for the assessment. This will impact the choice of dataset used to assess the embedding quality. The default is &#39;True&#39;.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    values_emd : 2D numpy array</span>
+<span class="sd">        Positive and negative distances computed using the embeddings. The first column relates to the positive distances and the second column to the negative distances.</span>
+<span class="sd">    </span>
+<span class="sd">    values_sim : 2D numpy array</span>
+<span class="sd">        Positive and negative distances computed using &#39;similarityFunc&#39;. The first column relates to the positive distances and the second column to the negative distances.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">assessment_method</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span><span class="s1">&#39;coefvar&#39;</span><span class="p">],</span><span class="s2">&quot;The assessment method is either &#39;mean&#39; or &#39;coefvar&#39;.&quot;</span>
+    <span class="c1">#-- square L2 norm</span>
+    <span class="k">def</span> <span class="nf">square_l2_norm</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">Y</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">((</span><span class="n">X</span><span class="o">-</span><span class="n">Y</span><span class="p">),</span><span class="nb">ord</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        
+    <span class="c1">#-- Scaler</span>
+    <span class="k">def</span> <span class="nf">scaler</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">mean_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">X</span><span class="o">-</span><span class="n">mean_</span><span class="p">)</span><span class="o">/</span><span class="n">std</span>
+        
+    <span class="c1">#--Datasets</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="n">data_object_embedding</span><span class="o">.</span><span class="n">motion_word_dataset</span>
+    <span class="n">num_motion_words</span> <span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">data_object_embedding</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>    
+
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;train&#39;</span><span class="p">:</span>
+        <span class="c1">#--Load positive and negative samples dataset</span>
+        <span class="n">paths_to_positive_negative_samples</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;./../data/datasets/training/training_dataset_10_Noisy_</span><span class="si">{</span><span class="n">include_noisy_data</span><span class="si">}</span><span class="s1">_similarity_dtw&#39;</span><span class="p">,</span>
+                                             <span class="sa">f</span><span class="s1">&#39;./../data/datasets/training/training_dataset_10_Noisy_</span><span class="si">{</span><span class="n">include_noisy_data</span><span class="si">}</span><span class="s1">_similarity_gak&#39;</span><span class="p">,</span>
+                                             <span class="sa">f</span><span class="s1">&#39;./../data/datasets/training/training_dataset_10_Noisy_</span><span class="si">{</span><span class="n">include_noisy_data</span><span class="si">}</span><span class="s1">_similarity_soft_dtw&#39;</span><span class="p">]</span>
+        
+        
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;test&#39;</span><span class="p">:</span>
+        <span class="n">paths_to_positive_negative_samples</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;./../data/datasets/testing/testing_dataset_10_Noisy_</span><span class="si">{</span><span class="n">include_noisy_data</span><span class="si">}</span><span class="s1">_similarity_gak&#39;</span><span class="p">,</span>
+                                              <span class="sa">f</span><span class="s1">&#39;./../data/datasets/testing/testing_dataset_10_Noisy_</span><span class="si">{</span><span class="n">include_noisy_data</span><span class="si">}</span><span class="s1">_similarity_dtw&#39;</span><span class="p">,</span>
+                                             <span class="sa">f</span><span class="s1">&#39;./../data/datasets/testing/testing_dataset_10_Noisy_</span><span class="si">{</span><span class="n">include_noisy_data</span><span class="si">}</span><span class="s1">_similarity_soft_dtw&#39;</span><span class="p">]</span>        
+        
+    <span class="c1">#-------</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">data_object_embedding</span><span class="o">.</span><span class="n">merge_training_data</span><span class="p">(</span><span class="n">paths_to_positive_negative_samples</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">The dataset considered for evaluation is : &#39;</span><span class="p">,</span> <span class="n">paths_to_positive_negative_samples</span><span class="p">,</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="c1">#--------Plotting  </span>
+    <span class="n">distances_emdedding</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> 
+    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;#3b78db&#39;</span><span class="p">,</span> <span class="s1">&#39;#bc7f2d&#39;</span><span class="p">,</span> <span class="s1">&#39;#122a3f&#39;</span><span class="p">]</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">func_indx</span><span class="p">,</span> <span class="n">function</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">similarityFunc</span><span class="p">)</span> <span class="p">:</span>
+        
+        <span class="c1">#--Retrieving the similarity function</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="n">data_object_embedding</span><span class="o">.</span><span class="n">similarity_functions</span><span class="p">[</span><span class="n">function</span><span class="p">]</span> 
+        
+        <span class="c1">#--Dictionary</span>
+        <span class="n">distances_similarity_func</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">dist_pos_embed</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">dist_neg_embed</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="k">for</span> <span class="n">anchor_name</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            
+            <span class="n">dist_pos_1</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">dist_neg_1</span> <span class="o">=</span> <span class="p">[]</span>
+            
+            <span class="k">for</span> <span class="n">pos</span><span class="p">,</span><span class="n">neg</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">values</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+                
+                <span class="k">if</span> <span class="n">func_indx</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="p">:</span>  <span class="c1">#--We only compute the embedding distances once for a given model.</span>
+                    <span class="c1">#---L2 distance for embeddings</span>
+                    <span class="n">dist_pos_embed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">square_l2_norm</span><span class="p">(</span><span class="n">embeddings</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">],</span><span class="n">embeddings</span><span class="p">[</span><span class="n">pos</span><span class="p">]))</span>
+                    <span class="n">dist_neg_embed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">square_l2_norm</span><span class="p">(</span><span class="n">embeddings</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">],</span><span class="n">embeddings</span><span class="p">[</span><span class="n">neg</span><span class="p">]))</span>
+                
+                <span class="c1">#---Similarity score</span>
+                <span class="n">dist_pos_1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">pos</span><span class="p">],</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">]))</span>
+                <span class="n">dist_neg_1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">neg</span><span class="p">],</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">]))</span>
+            
+            <span class="c1">#---Distances</span>
+            <span class="c1">#--- We are computing the coefficients of variation or the means.</span>
+            
+            <span class="k">if</span> <span class="n">func_indx</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="p">:</span>
+                <span class="k">if</span> <span class="n">assessment_method</span> <span class="o">==</span> <span class="s1">&#39;coefvar&#39;</span><span class="p">:</span>
+                    <span class="n">distances_emdedding</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">]</span> <span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dist_pos_embed</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dist_pos_embed</span><span class="p">)),</span>
+                                                   <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dist_neg_embed</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dist_neg_embed</span><span class="p">))]</span>
+                <span class="k">else</span> <span class="p">:</span>
+                    <span class="n">distances_emdedding</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">]</span> <span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dist_pos_embed</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dist_neg_embed</span><span class="p">)]</span>
+                    
+                    
+            <span class="k">if</span> <span class="n">assessment_method</span> <span class="o">==</span> <span class="s1">&#39;coefvar&#39;</span> <span class="p">:</span>
+                <span class="n">distances_similarity_func</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dist_pos_1</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dist_pos_1</span><span class="p">)),</span>
+                                                      <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dist_neg_1</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dist_neg_1</span><span class="p">))]</span>
+            <span class="k">else</span> <span class="p">:</span>
+                <span class="n">distances_similarity_func</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dist_pos_1</span><span class="p">),</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dist_neg_1</span><span class="p">)]</span>
+            
+            <span class="k">if</span> <span class="n">count</span> <span class="o">%</span> <span class="mi">99</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">:</span>
+                <span class="n">progress</span> <span class="o">=</span> <span class="mi">100</span><span class="o">*</span><span class="p">(</span><span class="n">count</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">num_motion_words</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">similarityFunc</span><span class="p">))</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The computation is at : </span><span class="si">{</span><span class="n">progress</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">%.&quot;</span><span class="p">)</span>
+            <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+            
+        <span class="c1">#if func_indx &lt; 1 :</span>
+        <span class="n">values_emd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">distances_emdedding</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="n">axs</span><span class="p">[</span><span class="n">func_indx</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">values_emd</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span>
+                            <span class="n">values_emd</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span>
+                            <span class="n">c</span><span class="o">=</span><span class="s1">&#39;#ff0000&#39;</span><span class="p">)</span>
+            
+        <span class="n">values_sim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">distances_similarity_func</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="c1">#-------------</span>
+        <span class="n">axs</span><span class="p">[</span><span class="n">func_indx</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">values_sim</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span><span class="n">values_sim</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span><span class="n">c</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="n">func_indx</span><span class="p">])</span>
+        <span class="n">axs</span><span class="p">[</span><span class="n">func_indx</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">([</span><span class="s2">&quot;Embeddings&quot;</span><span class="p">,</span><span class="n">function</span><span class="p">])</span>
+        <span class="n">axs</span><span class="p">[</span><span class="n">func_indx</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Positive samples&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="n">func_indx</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Negative samples&#39;</span><span class="p">)</span>
+
+    
+    <span class="c1">#--Save figure</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">plot_title</span> <span class="o">+</span><span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">assessment_method</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">values_emd</span><span class="p">,</span> <span class="n">values_sim</span>    </div>
+
+<span class="c1">#-------------------------------------- Demo for evaluation---------------------</span>
+<span class="k">if</span> <span class="s1">&#39;main&#39;</span> <span class="o">==</span> <span class="s1">&#39;0main&#39;</span><span class="p">:</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="s1">&#39;test&#39;</span> <span class="c1"># &#39;test&#39; #&#39;train&#39;</span>
+    <span class="n">noisy_data</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data_preparation</span><span class="p">(</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span><span class="p">,</span><span class="n">include_noisy_data</span><span class="o">=</span><span class="n">noisy_data</span><span class="p">)</span>
+    <span class="n">data_embeddings</span> <span class="o">=</span> <span class="n">data_preparation</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span> <span class="n">mode</span><span class="p">,</span><span class="n">include_noisy_data</span><span class="o">=</span><span class="n">noisy_data</span><span class="p">)</span>
+    
+    <span class="c1">#-----------------------Parameters-------------------------</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">set_motionWords_parameters</span><span class="p">(</span><span class="n">number_of_frames</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span><span class="n">overlaping_degree</span><span class="o">=</span><span class="mf">0.75</span><span class="p">)</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">set_featureExpansion_parameters</span><span class="p">(</span><span class="n">do_PCA</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">number_of_components</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">csv_files_mining</span><span class="p">(</span><span class="n">select_high_variance_features</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">expand_features</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">compute_motion_words</span><span class="p">(</span><span class="n">divide_sequence</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+    <span class="n">motion_word_dataset</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">)</span>
+    <span class="c1">#----imaging</span>
+    <span class="c1">#---- Setting parameters</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">set_imaging_parameters</span><span class="p">(</span><span class="n">do_recurrenceP</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">RP_threshold</span> <span class="o">=</span> <span class="s1">&#39;point&#39;</span><span class="p">,</span>
+                               <span class="n">RP_timeDelay</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">RP_dimension</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
+                               <span class="n">do_GAF</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">GAF_method</span> <span class="o">=</span> <span class="s1">&#39;summation&#39;</span><span class="p">,</span>
+                               <span class="n">do_MTF</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                               <span class="n">square_reshape</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                               <span class="n">vertical_stacking</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                               <span class="n">horizontal_stacking</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> 
+    
+    <span class="c1">#--Loading the model parameters</span>
+    <span class="n">num_classes</span> <span class="o">=</span> <span class="mi">700</span>
+    <span class="n">model_name</span> <span class="o">=</span> <span class="s1">&#39;resnet18&#39;</span>
+    <span class="n">model</span> <span class="p">,</span> <span class="n">input_size</span> <span class="o">=</span> <span class="n">initialize_model</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">model_name</span><span class="p">,</span> <span class="n">num_classes</span> <span class="o">=</span> <span class="n">num_classes</span><span class="p">,</span>
+                                              <span class="n">feature_extract</span><span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">use_pretrained</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+   
+    <span class="c1">#model_path = f&#39;./../d9ata/models/model_resnet18_RecordingParam_tsImages_False_includeNoisy_{noisy_data}.pth&#39; </span>
+    <span class="n">model_path</span> <span class="o">=</span> <span class="s1">&#39;./../data/models/model_resnet18_RecordingParam_tsImages_False_includeNoisy_True_MultipleContext.pth&#39;</span> 
+    <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;cpu&#39;</span><span class="p">))</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">[</span><span class="s1">&#39;model_state_dict&#39;</span><span class="p">])</span> 
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Loss :&#39;</span><span class="p">,</span><span class="n">checkpoint</span><span class="p">[</span><span class="s1">&#39;loss&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span><span class="s1">&#39;; Num of epoch&#39;</span><span class="p">,</span><span class="n">checkpoint</span><span class="p">[</span><span class="s1">&#39;epoch&#39;</span><span class="p">])</span>
+
+    <span class="n">ts_images</span> <span class="o">=</span> <span class="kc">False</span> 
+    <span class="c1">#--Loading the transformer</span>
+    <span class="n">transformer</span> <span class="o">=</span> <span class="n">transform_data</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">is_ts_images</span> <span class="o">=</span> <span class="n">ts_images</span><span class="p">)</span>
+        
+    <span class="c1">#--Running the evaluation</span>
+    <span class="c1">#&quot;&quot;&quot;</span>
+    <span class="n">evaluation</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> 
+                   <span class="n">data</span><span class="p">,</span>
+                   <span class="n">transformer</span><span class="p">,</span>
+                   <span class="n">embedding_dimension</span> <span class="o">=</span> <span class="n">num_classes</span><span class="p">,</span>
+                   <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">180</span><span class="p">,</span> 
+                   <span class="n">do_ts_images</span> <span class="o">=</span> <span class="n">ts_images</span><span class="p">,</span>
+                   <span class="n">is_inception</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="c1">#&quot;&quot;&quot;</span>
+    <span class="c1">#--- Load embeddings</span>
+    <span class="n">data_embeddings</span><span class="o">.</span><span class="n">load_motion_word_dataset</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s1">&#39;./../data/embeddings&#39;</span><span class="p">)</span>
+        
+    <span class="n">sim_func</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;dtw&#39;</span><span class="p">,</span><span class="s1">&#39;soft_dtw&#39;</span><span class="p">,</span><span class="s1">&#39;gak&#39;</span><span class="p">]</span> 
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"> The similarity function used is : </span><span class="si">{</span><span class="n">sim_func</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">plot_title</span> <span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">model_path</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        
+    <span class="n">values_emd</span><span class="p">,</span> <span class="n">values_sim</span> <span class="o">=</span> <span class="n">embedding_quality_assessment_similarityFuncVsNN</span><span class="p">(</span><span class="n">motion_word_dataset</span><span class="p">,</span> 
+                                                                                 <span class="n">data_embeddings</span><span class="p">,</span> 
+                                                                                 <span class="n">similarityFunc</span> <span class="o">=</span> <span class="n">sim_func</span><span class="p">,</span>
+                                                                                 <span class="n">plot_title</span><span class="o">=</span><span class="n">plot_title</span><span class="p">,</span>
+                                                                                 <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+                                                                                 <span class="n">include_noisy_data</span><span class="o">=</span><span class="n">noisy_data</span><span class="p">,</span>
+                                                                                 <span class="n">assessment_method</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">)</span>
+            
+        
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; It tooks </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">start</span><span class="si">:</span><span class="s2">0.2f</span><span class="si">}</span><span class="s2"> seconds.&quot;</span><span class="p">)</span>
+        
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.evaluation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>

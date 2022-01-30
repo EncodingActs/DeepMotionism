@@ -1,0 +1,868 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.retrieval_system &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="../../_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.retrieval_system</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.retrieval_system</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+
+<span class="kn">from</span> <span class="nn">.evaluation</span> <span class="kn">import</span>  <span class="n">evaluation</span><span class="p">,</span> <span class="n">motion_signatures</span><span class="p">,</span> <span class="n">cluster_dataset</span>
+<span class="kn">from</span> <span class="nn">.deepArchitecture</span> <span class="kn">import</span> <span class="n">transform_data</span><span class="p">,</span><span class="n">initialize_model</span>
+<span class="kn">from</span> <span class="nn">.dataPreparation</span> <span class="kn">import</span> <span class="n">data_preparation</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">joblib</span> <span class="kn">import</span> <span class="n">dump</span><span class="p">,</span> <span class="n">load</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="kn">import</span> <span class="n">BallTree</span> 
+<span class="kn">from</span> <span class="nn">scipy.spatial.distance</span> <span class="kn">import</span> <span class="n">pdist</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">wasserstein_distance</span>
+<span class="kn">from</span> <span class="nn">scipy.cluster.hierarchy</span> <span class="kn">import</span> <span class="n">dendrogram</span><span class="p">,</span> <span class="n">linkage</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">from</span> <span class="nn">re</span> <span class="kn">import</span> <span class="n">split</span>
+<span class="kn">from</span> <span class="nn">nearpy</span> <span class="kn">import</span> <span class="n">Engine</span>
+<span class="kn">from</span> <span class="nn">nearpy.hashes</span> <span class="kn">import</span> <span class="n">RandomBinaryProjectionTree</span>
+<span class="kn">from</span> <span class="nn">nearpy.filters</span> <span class="kn">import</span> <span class="n">NearestFilter</span>
+<span class="kn">from</span> <span class="nn">nearpy.distances</span> <span class="kn">import</span> <span class="n">CosineDistance</span>
+
+<div class="viewcode-block" id="retrieval_engine"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine">[docs]</a><span class="k">class</span> <span class="nc">retrieval_engine</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Methods</span>
+<span class="sd">    -------</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                 <span class="n">model_name</span><span class="o">=</span><span class="s1">&#39;resnet18&#39;</span><span class="p">,</span>
+                 <span class="n">embedding_dimension</span><span class="o">=</span><span class="mi">700</span><span class="p">,</span> 
+                 <span class="n">do_ts_images</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">is_inception</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">num_subsequences</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+                 <span class="n">select_high_variance_features</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">include_videos_allMoCap</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+                 <span class="n">load_oldData</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">use_multiple_context_NN</span><span class="o">=</span><span class="kc">True</span> <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        model_name : string, optional</span>
+<span class="sd">            It is the name of the desired backbone. The default is &#39;resnet18&#39;.</span>
+<span class="sd">            </span>
+<span class="sd">        embedding_dimension : int, optional</span>
+<span class="sd">            The embedding dimension of the motion words.Give the embedding dimension for which the model was trained. The default is 700.</span>
+<span class="sd">            </span>
+<span class="sd">        do_ts_images : boolean, optional</span>
+<span class="sd">            It states if the motion words should be transformed into images.If set to &#39;True&#39; one should run &quot;self.data.set_imaging_parameters(**)&quot; . The default is False.</span>
+<span class="sd">            </span>
+<span class="sd">        is_inception : boolean, optional</span>
+<span class="sd">            It states if the model is an inception model. The default is False.</span>
+<span class="sd">            </span>
+<span class="sd">        num_subsequences : int, optional</span>
+<span class="sd">            The default is 4.</span>
+<span class="sd">        </span>
+<span class="sd">        select_high_variance_features : boolean, optional</span>
+<span class="sd">            It states if feature selection should be done. In fact it only works when &quot;include_videos_allMoCap==False&quot;. The default is True.</span>
+<span class="sd">        </span>
+<span class="sd">        include_videos_allMoCap : boolean, optional</span>
+<span class="sd">            It states whether the engine should consider videos and all MoCap (Cleansed and not). The default is</span>
+<span class="sd">        </span>
+<span class="sd">        Load_oldData : boolean, optional</span>
+<span class="sd">            It states if the old data should be loaded. If set to False, the motion words will be computed. It should be set to &#39;False&#39; when using new data</span>
+<span class="sd">        </span>
+<span class="sd">        use_multiple_context_NN : boolean, optional</span>
+<span class="sd">            States if we should load the parameters of the ResNet18 network trained on the dataset computed from 3 different contexts. The default is True. Set to False to use the &quot;single context&quot; version.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+<span class="sd">        </span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">select_high_variance_features</span> <span class="o">=</span> <span class="n">select_high_variance_features</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span> <span class="o">=</span> <span class="n">include_videos_allMoCap</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span> <span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">select_high_variance_features</span> <span class="o">=</span> <span class="kc">None</span>
+            
+        <span class="k">for</span> <span class="n">indx</span><span class="p">,</span> <span class="n">mode</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="s1">&#39;train&#39;</span><span class="p">,</span><span class="s1">&#39;test&#39;</span><span class="p">]):</span>
+            
+            <span class="n">dummy</span> <span class="o">=</span> <span class="n">data_preparation</span><span class="p">(</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span><span class="p">,</span><span class="n">include_noisy_data</span><span class="o">=</span><span class="n">include_videos_allMoCap</span><span class="p">)</span>
+            
+            <span class="c1">#-----------------------Parameters-------------------------</span>
+            <span class="n">dummy</span><span class="o">.</span><span class="n">set_motionWords_parameters</span><span class="p">(</span><span class="n">number_of_frames</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span><span class="n">overlaping_degree</span><span class="o">=</span><span class="mf">0.75</span><span class="p">)</span>
+            <span class="n">dummy</span><span class="o">.</span><span class="n">set_featureExpansion_parameters</span><span class="p">(</span><span class="n">do_PCA</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">number_of_components</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">load_oldData</span> <span class="p">:</span>
+                <span class="n">dummy</span><span class="o">.</span><span class="n">load_motion_word_dataset</span><span class="p">()</span>
+                <span class="n">dummy</span><span class="o">.</span><span class="n">load_motion_words_context</span><span class="p">()</span>
+                
+            <span class="k">else</span> <span class="p">:</span>
+                <span class="n">dummy</span><span class="o">.</span><span class="n">csv_files_mining</span><span class="p">(</span><span class="n">select_high_variance_features</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">select_high_variance_features</span><span class="p">,</span>
+                                       <span class="n">expand_features</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">feature_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+                <span class="n">dummy</span><span class="o">.</span><span class="n">compute_motion_words</span><span class="p">(</span><span class="n">divide_sequence</span><span class="o">=</span><span class="n">num_subsequences</span><span class="p">)</span>
+            
+            <span class="c1">#----imaging parameters</span>
+            <span class="n">dummy</span><span class="o">.</span><span class="n">set_imaging_parameters</span><span class="p">(</span><span class="n">do_recurrenceP</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">RP_threshold</span> <span class="o">=</span> <span class="s1">&#39;point&#39;</span><span class="p">,</span>
+                                       <span class="n">RP_timeDelay</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">RP_dimension</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
+                                       <span class="n">do_GAF</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">GAF_method</span> <span class="o">=</span> <span class="s1">&#39;summation&#39;</span><span class="p">,</span>
+                                       <span class="n">do_MTF</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                                       <span class="n">square_reshape</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                                       <span class="n">vertical_stacking</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                                       <span class="n">horizontal_stacking</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">indx</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">dummy</span><span class="p">)</span>
+                
+            <span class="k">else</span> <span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dummy</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dummy</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="p">)</span>
+                
+        <span class="c1">#---   </span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_ts_images</span> <span class="o">=</span> <span class="n">do_ts_images</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">model_name</span>
+        
+        <span class="k">if</span> <span class="n">use_multiple_context_NN</span> <span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">path_to_model_param</span><span class="o">=</span><span class="s1">&#39;./../data/models/model_resnet18_RecordingParam_tsImages_False_includeNoisy_True_MultipleContext.pth&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">path_to_model_param</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;./../data/models/model_resnet18_RecordingParam_tsImages_False_includeNoisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">.pth&#39;</span>         
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_inception</span> <span class="o">=</span> <span class="n">is_inception</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">180</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding_dimension</span> <span class="o">=</span> <span class="n">embedding_dimension</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_clusters</span> <span class="o">=</span> <span class="mi">200</span>
+        
+        <span class="c1">#---Signatures</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signatures</span> <span class="o">=</span> <span class="kc">None</span>
+        
+        <span class="c1">#---Predict clusters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_predictor</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path_to_predictor</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;./../data/cluster_predictor_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s2">.joblib&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_assignments</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_sizes</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_centers</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1">#---Flag</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_contains_embeddings</span> <span class="o">=</span> <span class="kc">False</span>
+        
+        <span class="c1">#---Windows parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">windows_overlaping_degree</span> <span class="o">=</span> <span class="mf">0.8</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ball_tree_window_size</span> <span class="o">=</span> <span class="mi">20</span> <span class="c1"># number of words</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">lsh_engine</span> <span class="o">=</span> <span class="kc">None</span>
+        
+<div class="viewcode-block" id="retrieval_engine.compute_embeddings"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.compute_embeddings">[docs]</a>    <span class="k">def</span> <span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Computes the embeddings.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">model</span><span class="p">,</span><span class="n">input_size</span> <span class="o">=</span>  <span class="n">initialize_model</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                                       <span class="n">num_classes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">embedding_dimension</span><span class="p">,</span>
+                                       <span class="n">feature_extract</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">use_pretrained</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1">#--Loading last checkpoint and model parameters                                           </span>
+        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_model_param</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;cpu&#39;</span><span class="p">))</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">[</span><span class="s1">&#39;model_state_dict&#39;</span><span class="p">],</span><span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  
+        
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">There are : &quot;</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">),</span> <span class="s2">&quot;motions words in the dataset.&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Model : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_model_param</span><span class="si">}</span><span class="s2"> --&gt; loaded.&quot;</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">transformer</span> <span class="o">=</span> <span class="n">transform_data</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span><span class="n">is_ts_images</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">do_ts_images</span><span class="p">)</span>
+        
+        <span class="c1">#--Computing embeddings</span>
+        <span class="n">evaluation</span><span class="p">(</span><span class="n">model</span><span class="p">,</span>
+                   <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+                   <span class="bp">self</span><span class="o">.</span><span class="n">transformer</span><span class="p">,</span> 
+                   <span class="bp">self</span><span class="o">.</span><span class="n">embedding_dimension</span><span class="p">,</span>
+                   <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
+                   <span class="bp">self</span><span class="o">.</span><span class="n">do_ts_images</span><span class="p">,</span>
+                   <span class="bp">self</span><span class="o">.</span><span class="n">is_inception</span><span class="p">,</span>
+                   <span class="n">saving_file_ending</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;retrieval_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        
+        <span class="c1">#---Loading embeddings        </span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">load_motion_word_dataset</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;./../data/embeddings_retrieval_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        
+        <span class="c1">#--Setting the flag to True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_contains_embeddings</span> <span class="o">=</span> <span class="kc">True</span></div>
+        
+<div class="viewcode-block" id="retrieval_engine.compute_cluster_predictor"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.compute_cluster_predictor">[docs]</a>    <span class="k">def</span> <span class="nf">compute_cluster_predictor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">save</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Computes the clusters and assignments.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        save : boolean, optional</span>
+<span class="sd">            It states if the computed clusters. The default is True.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_contains_embeddings</span> <span class="o">==</span> <span class="kc">False</span> <span class="p">:</span> 
+            <span class="bp">self</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">()</span>
+        
+        <span class="n">embeddings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_assignments</span> <span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_sizes</span> <span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_centers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_predictor</span>  <span class="o">=</span> <span class="n">cluster_dataset</span><span class="p">(</span><span class="n">embeddings</span> <span class="p">,</span>
+                                                                                                                        <span class="n">motion_names</span> <span class="o">=</span>  <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> 
+                                                                                                                        <span class="n">num_clusters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_clusters</span><span class="p">)</span>   
+        <span class="k">if</span> <span class="n">save</span> <span class="p">:</span>
+            <span class="c1">#--Saving fitted model</span>
+            <span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_predictor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path_to_predictor</span><span class="p">)</span> 
+            <span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_assignments</span><span class="p">,</span><span class="sa">f</span><span class="s2">&quot;./../data/cluster_assignments_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s2">.joblib&quot;</span><span class="p">)</span>
+            <span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_sizes</span><span class="p">,</span><span class="sa">f</span><span class="s2">&quot;../data/cluster_sizes_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s2">.joblib&quot;</span><span class="p">)</span>
+            <span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_centers</span><span class="p">,</span><span class="sa">f</span><span class="s2">&quot;../data/cluster_center_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s2">.joblib&quot;</span><span class="p">)</span></div>
+        
+                
+<div class="viewcode-block" id="retrieval_engine.load_predictor"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.load_predictor">[docs]</a>    <span class="k">def</span> <span class="nf">load_predictor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads clusters information. In case one deals with new data, one should run &#39;compute_cluster_predictor&#39; instead.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_predictor</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cluster_predictor</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_predictor</span><span class="p">)</span>
+        
+            <span class="bp">self</span><span class="o">.</span><span class="n">cluster_assignments</span> <span class="o">=</span>  <span class="n">load</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;./../data/cluster_assignments_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s2">.joblib&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cluster_sizes</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;../data/cluster_sizes_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s2">.joblib&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cluster_centers</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;../data/cluster_center_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s2">.joblib&quot;</span><span class="p">)</span>
+            
+        <span class="k">else</span> <span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Make sure the predictor has been saved to : &quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path_to_predictor</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="kc">None</span></div>
+    
+<div class="viewcode-block" id="retrieval_engine.load_embedding"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.load_embedding">[docs]</a>    <span class="k">def</span> <span class="nf">load_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads embeddings. In case one deals with new data, one should run &#39;self.compute_embeddings()&#39; instead.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;./../data/embeddings_retrieval_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">&#39;</span>
+            
+        <span class="c1">#---Loading embeddings        </span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">load_motion_word_dataset</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        
+        <span class="c1">#--Setting the flag to True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_contains_embeddings</span> <span class="o">=</span> <span class="kc">True</span>
+        
+        <span class="k">return</span> <span class="kc">None</span></div>
+        
+<div class="viewcode-block" id="retrieval_engine.compute_motion_signatures"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.compute_motion_signatures">[docs]</a>    <span class="k">def</span> <span class="nf">compute_motion_signatures</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">query_sequence_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">sequence_decomposition</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Computes motion signatures.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        query_sequence_name : string, optional</span>
+<span class="sd">            The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        sequence_decomposition : dictionary, optional</span>
+<span class="sd">            It is a dictionary where the values. The default is None.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        signatures : dictionary</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="c1">#---Signatures</span>
+        <span class="n">signatures</span> <span class="o">=</span> <span class="n">motion_signatures</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+                                                  <span class="n">num_clusters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_clusters</span><span class="p">,</span>
+                                                  <span class="n">plot_embeddings</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                                  <span class="n">plot_signatures</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                                  <span class="n">plot_pairwise_distances</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                                  <span class="n">names_and_assignments</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_assignments</span><span class="p">,</span>
+                                                  <span class="n">size_of_clusters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_sizes</span><span class="p">,</span>
+                                                  <span class="n">cluster_centers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_centers</span><span class="p">,</span>
+                                                  <span class="n">sequence_decomposition</span> <span class="o">=</span> <span class="n">sequence_decomposition</span>  <span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">signatures</span></div>
+    
+    
+<div class="viewcode-block" id="retrieval_engine.compute_ball_tree"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.compute_ball_tree">[docs]</a>    <span class="k">def</span> <span class="nf">compute_ball_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">save</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">distance_metric</span><span class="o">=</span><span class="s1">&#39;pyfunc&#39;</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Computes the ball tree and optionally save it.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        save : boolean, optional</span>
+<span class="sd">            The default is True.</span>
+<span class="sd">            </span>
+<span class="sd">        distance_metric : string, optional</span>
+<span class="sd">            We recommend the following distance metrics are &#39;euclidean&#39;, &#39;minkowski&#39;,&#39;manhattan&#39;, &#39;cityblock&#39;, &#39;l1&#39;, &#39;seuclidean&#39;, &#39;canberra&#39;, &#39;pyfunc&#39;. The default is &#39;pyfunc&#39;. When we use &#39;pyfunc&#39;, we can define our own function which is here the earth mover distance..</span>
+<span class="sd">            </span>
+<span class="sd">        window_size : int, optional</span>
+<span class="sd">            The number of motion words to consider as a window. The default is None.</span>
+<span class="sd">              </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list : [tree, signatures, all_sequences_names, windows_maping, all_windows]</span>
+<span class="sd">            For more info on how to perform queries on the tree visit :  https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.BallTree.html.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_contains_embeddings</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">window_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ball_tree_window_size</span> <span class="o">=</span> <span class="n">window_size</span>
+        
+        <span class="c1">#--</span>
+        <span class="n">all_windows</span><span class="p">,</span> <span class="n">windows_maping</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve_windows</span><span class="p">(</span><span class="n">query_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">window_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball_tree_window_size</span><span class="p">)</span>
+        
+        <span class="c1">#--Compute clusters if necessary</span>
+        <span class="n">condition</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_assignments</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_centers</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_sizes</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_predictor</span><span class="p">]]</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span> <span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Computing clusters...&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">compute_cluster_predictor</span><span class="p">(</span><span class="n">save</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="c1">#--  </span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Computing motion signatures...&#39;</span><span class="p">)</span>
+        <span class="n">all_sequences_signatures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_motion_signatures</span><span class="p">(</span><span class="n">sequence_decomposition</span> <span class="o">=</span>  <span class="n">all_windows</span><span class="p">)</span>
+        
+        <span class="c1">#--Earth mover distance for distributions</span>
+        <span class="n">signatures</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">all_sequences_signatures</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="n">tree</span> <span class="o">=</span> <span class="n">BallTree</span><span class="p">(</span><span class="n">signatures</span><span class="p">,</span> <span class="n">leaf_size</span> <span class="o">=</span> <span class="mi">40</span><span class="p">,</span> <span class="n">metric</span> <span class="o">=</span> <span class="n">distance_metric</span><span class="p">,</span><span class="n">func</span><span class="o">=</span><span class="n">wasserstein_distance</span><span class="p">)</span>
+         
+        <span class="c1">#--           </span>
+        <span class="k">if</span> <span class="n">save</span> <span class="p">:</span>
+            <span class="n">file</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;./../data/ball_tree_signatures_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">.joblib&#39;</span> 
+            <span class="n">dump</span><span class="p">([</span><span class="n">tree</span><span class="p">,</span><span class="n">signatures</span><span class="p">,</span><span class="nb">list</span><span class="p">(</span><span class="n">all_sequences_signatures</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span><span class="n">windows_maping</span><span class="p">,</span><span class="n">all_windows</span><span class="p">],</span> <span class="n">file</span><span class="p">)</span>
+           
+        <span class="k">return</span> <span class="p">[</span><span class="n">tree</span><span class="p">,</span> <span class="n">signatures</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">all_sequences_signatures</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="n">windows_maping</span><span class="p">,</span> <span class="n">all_windows</span><span class="p">]</span></div>
+    
+<div class="viewcode-block" id="retrieval_engine.compute_dendrogram"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.compute_dendrogram">[docs]</a>    <span class="k">def</span> <span class="nf">compute_dendrogram</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Computes the dendrogram of the embeddings.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_contains_embeddings</span><span class="p">:</span>
+            <span class="n">embeddings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="k">else</span> <span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">()</span>
+            <span class="n">embeddings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        
+        <span class="n">X</span> <span class="o">=</span> <span class="n">pdist</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span><span class="n">metric</span><span class="o">=</span><span class="s1">&#39;euclidean&#39;</span><span class="p">)</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">linkage</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s1">&#39;ward&#39;</span><span class="p">)</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">70</span><span class="p">,</span> <span class="mi">70</span><span class="p">))</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">dendrogram</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+                
+        <span class="nb">print</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="retrieval_engine.compute_lsh_engine"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.compute_lsh_engine">[docs]</a>    <span class="k">def</span> <span class="nf">compute_lsh_engine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">top_k</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Computes the lsh engine.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        top_k : int, optional</span>
+<span class="sd">            The default is 10.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">all_windows</span><span class="p">,</span> <span class="n">windows_maping</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve_windows</span><span class="p">(</span><span class="n">query_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">window_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball_tree_window_size</span><span class="p">)</span>
+        <span class="n">all_sequences_signatures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_motion_signatures</span><span class="p">(</span><span class="n">sequence_decomposition</span> <span class="o">=</span>  <span class="n">all_windows</span><span class="p">)</span>
+                
+        <span class="n">rbpt</span> <span class="o">=</span> <span class="n">RandomBinaryProjectionTree</span><span class="p">(</span><span class="s1">&#39;rbpt&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">top_k</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">top_k</span><span class="p">)</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">Engine</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_clusters</span><span class="p">,</span> <span class="n">lshashes</span><span class="o">=</span><span class="p">[</span><span class="n">rbpt</span><span class="p">],</span><span class="n">distance</span><span class="o">=</span><span class="n">CosineDistance</span><span class="p">(),</span><span class="n">vector_filters</span><span class="o">=</span><span class="p">[</span><span class="n">NearestFilter</span><span class="p">(</span><span class="n">top_k</span><span class="p">)])</span>
+        
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span><span class="n">val</span> <span class="ow">in</span> <span class="n">all_sequences_signatures</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">engine</span><span class="o">.</span><span class="n">store_vector</span><span class="p">(</span><span class="n">val</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span> <span class="n">key</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">lsh_engine</span> <span class="o">=</span> <span class="p">[</span><span class="n">engine</span><span class="p">,</span><span class="n">all_sequences_signatures</span><span class="p">,</span><span class="n">all_windows</span><span class="p">]</span>
+        
+        <span class="k">return</span> <span class="kc">None</span></div>
+   <span class="c1">#---------------------------------------- Retrieving data--------------------</span>
+<div class="viewcode-block" id="retrieval_engine.retrieve_windows"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.retrieve_windows">[docs]</a>    <span class="k">def</span> <span class="nf">retrieve_windows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">query_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">window_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function retrieves the windows. Make sure that either query_name and window_size is defined. Both shouldn&#39;t be &#39;None&#39;.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        query_name : string or None, optional</span>
+<span class="sd">            The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        window_size : int or None, optional</span>
+<span class="sd">            The default is None.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        all_windows : dictionary</span>
+<span class="sd">            </span>
+<span class="sd">        windows_mapping : dictionary</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="n">all_windows</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">windows_mapping</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        
+                
+        <span class="k">if</span> <span class="n">query_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>  <span class="p">:</span>
+            <span class="n">window_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="p">[</span><span class="n">query_name</span><span class="p">])</span> 
+        
+        
+
+        <span class="c1">#--Number of frames to skip</span>
+        <span class="n">skip</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">windows_overlaping_degree</span> <span class="o">*</span> <span class="n">window_size</span><span class="p">)</span>
+        
+        <span class="k">for</span> <span class="n">sequence_name</span><span class="p">,</span> <span class="n">motions_in_sequence</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="p">:</span>
+            
+            <span class="c1">#--length of the array</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">motions_in_sequence</span><span class="p">)</span>
+            <span class="c1">#---------</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="n">window_size</span> <span class="p">:</span> 
+                <span class="n">windows_names</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">((</span><span class="n">n</span> <span class="o">-</span> <span class="n">window_size</span><span class="p">)</span><span class="o">/</span><span class="n">skip</span><span class="p">)):</span>
+                    <span class="n">window</span> <span class="o">=</span> <span class="n">motions_in_sequence</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="n">skip</span><span class="p">:</span><span class="n">i</span><span class="o">*</span><span class="n">skip</span> <span class="o">+</span> <span class="n">window_size</span><span class="p">]</span>
+                    <span class="c1">#windows.append(window)</span>
+                    <span class="c1">#---</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="n">sequence_name</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;_window_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="n">all_windows</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">window</span>
+                    <span class="n">windows_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                
+                <span class="n">windows_mapping</span><span class="p">[</span><span class="n">sequence_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">windows_names</span>
+            <span class="c1">#else :</span>
+            <span class="c1">#---------</span>
+            <span class="n">all_windows</span><span class="p">[</span><span class="n">sequence_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">motions_in_sequence</span>
+            <span class="n">windows_mapping</span><span class="p">[</span><span class="n">sequence_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">sequence_name</span><span class="p">]</span>
+            
+        <span class="k">return</span> <span class="n">all_windows</span><span class="p">,</span> <span class="n">windows_mapping</span></div>
+        
+    
+<div class="viewcode-block" id="retrieval_engine.retrieve_reference"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.retrieve_reference">[docs]</a>    <span class="k">def</span> <span class="nf">retrieve_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">sequence_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">start_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">end_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">top_k</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">load_emdeddings</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">load_clusters</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">windows_overlaping_degree</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reference retrieval engine.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        query_name : string or None</span>
+<span class="sd">            Name of the sequence to retrieve. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        sequence_name : string or None, optional</span>
+<span class="sd">            This parameter should be given if one wants to use &quot;start_frame_index&quot; &amp; &quot;end_frame_index&quot; . The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        start_frame_index : int, optional</span>
+<span class="sd">            Starting frame index. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        end_frame_index : int, optional</span>
+<span class="sd">            Ending frame index. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        top_k : int, optional</span>
+<span class="sd">            Top closest sequences to retrieve. The default is 10.</span>
+<span class="sd">            </span>
+<span class="sd">        load_emdeddings : boolean, optional</span>
+<span class="sd">            The default is False. It should be set to &#39;True&#39; if one has already computed the embeddings using self.compute_embeddings().</span>
+<span class="sd">            </span>
+<span class="sd">        load_clusters : boolean, optional</span>
+<span class="sd">            The default is False. It should be set to &#39;True&#39; if one has already computed the clusters using self.compute_cluster_predictor().</span>
+<span class="sd">            </span>
+<span class="sd">        windows_overlaping_degree : float or None, optional</span>
+<span class="sd">            The window overlaping degree. It should be between 0 and 1. The default is None.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Dictionary</span>
+<span class="sd">            The keys of this dictionary are the retrieved sequences or subsequences names. And the values are lists of the following form [parent_sequence_name,(starting frame indice, ending frame indice)]. &quot;parent_sequence_name&quot; is the sequence name for which the frame indices are given.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        
+        <span class="c1">#--</span>
+        <span class="k">if</span> <span class="n">sequence_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="k">assert</span> <span class="kc">None</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="n">start_frame_index</span><span class="p">,</span><span class="n">end_frame_index</span><span class="p">],</span><span class="s2">&quot;Please provide valid values for &#39;start_frame_index&#39; &amp; &#39;end_frame_index.&#39; &quot;</span>
+            <span class="n">query_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">add_subsequence</span><span class="p">(</span><span class="n">sequence_name</span><span class="p">,</span> <span class="n">start_frame_index</span><span class="p">,</span> <span class="n">end_frame_index</span><span class="p">)</span>
+        
+        <span class="k">assert</span> <span class="n">query_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;query_name can&#39;t be &#39;None&#39;.Give valid query_name.&quot;</span>
+        
+        <span class="k">if</span> <span class="n">load_emdeddings</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">load_embedding</span><span class="p">()</span>
+            
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_contains_embeddings</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">load_clusters</span> <span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">load_predictor</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">windows_overlaping_degree</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">windows_overlaping_degree</span> <span class="o">=</span> <span class="n">windows_overlaping_degree</span>
+            
+        <span class="c1">#--Compute clusters if necessary</span>
+        <span class="n">condition</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_assignments</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_centers</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_sizes</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_predictor</span><span class="p">]]</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span> <span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Computing clusters...&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">compute_cluster_predictor</span><span class="p">(</span><span class="n">save</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        
+        <span class="c1">#--Retrieving all windows</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Retrieving windows...&#39;</span><span class="p">)</span>
+        <span class="n">all_windows</span><span class="p">,</span> <span class="n">windows_maping</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve_windows</span><span class="p">(</span><span class="n">query_name</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;There are </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_windows</span><span class="p">)</span><span class="si">}</span><span class="s1"> windows to analyze.&#39;</span><span class="p">)</span>
+        
+        <span class="c1">#--Inverse document frequency function</span>
+        <span class="n">idf</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_windows</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_sizes</span><span class="p">[</span><span class="n">x</span><span class="p">])</span> <span class="p">)</span>
+        <span class="n">cluster_densities</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">idf</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_clusters</span><span class="p">)]</span>
+        
+        <span class="c1">#--Earth mover distance for distributions</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">:</span> <span class="n">wasserstein_distance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span> <span class="n">u_weights</span> <span class="o">=</span> <span class="n">cluster_densities</span><span class="p">,</span><span class="n">v_weights</span><span class="o">=</span><span class="n">cluster_densities</span><span class="p">)</span>
+        <span class="n">distances</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Computing motion signatures...&#39;</span><span class="p">)</span>
+        <span class="n">all_windows_signatures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_motion_signatures</span><span class="p">(</span><span class="n">sequence_decomposition</span> <span class="o">=</span> <span class="n">all_windows</span><span class="p">)</span>
+                
+        <span class="c1">#----</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">sequence_windows</span> <span class="ow">in</span> <span class="n">windows_maping</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">distance</span> <span class="o">=</span> <span class="p">[</span><span class="n">func</span><span class="p">(</span><span class="n">all_windows_signatures</span><span class="p">[</span><span class="n">window</span><span class="p">],</span><span class="n">all_windows_signatures</span><span class="p">[</span><span class="n">query_name</span><span class="p">])</span> <span class="k">for</span> <span class="n">window</span> <span class="ow">in</span>  <span class="n">sequence_windows</span><span class="p">]</span>
+            <span class="n">distances</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">distance</span><span class="p">)))</span>
+            
+        <span class="c1">#----</span>
+        <span class="n">sequences_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">windows_maping</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">sorted_names_by_score</span> <span class="o">=</span> <span class="p">[[</span><span class="n">name</span><span class="p">,</span><span class="n">score</span><span class="p">]</span> <span class="k">for</span> <span class="n">score</span><span class="p">,</span><span class="n">name</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">distances</span><span class="p">,</span><span class="n">sequences_names</span><span class="p">))]</span>
+        <span class="n">top_k</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">top_k</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">distances</span><span class="p">))</span>
+        <span class="n">selected_names</span>  <span class="o">=</span> <span class="p">[</span><span class="n">sorted_names_by_score</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">top_k</span><span class="p">)]</span>
+        
+        <span class="c1">#----</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span> <span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\B_window_&quot;</span><span class="p">,</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">func_1</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span> <span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;_sub_\B&quot;</span><span class="p">,</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">parentNames_framesIndices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">selected_names</span> <span class="p">:</span>
+            <span class="c1">#--Getting sequence name and updating dictionary.</span>
+            <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;_sub_&quot;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">:</span>
+                <span class="n">parentNames_framesIndices</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">func_1</span><span class="p">(</span><span class="n">name</span><span class="p">),</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get_frames_indices</span><span class="p">(</span><span class="n">all_windows</span><span class="p">[</span><span class="n">name</span><span class="p">])])</span>
+            <span class="k">else</span> <span class="p">:</span>
+                <span class="n">parentNames_framesIndices</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">func</span><span class="p">(</span><span class="n">name</span><span class="p">),</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get_frames_indices</span><span class="p">(</span><span class="n">all_windows</span><span class="p">[</span><span class="n">name</span><span class="p">])])</span>
+                    
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">selected_names</span><span class="p">,</span><span class="n">parentNames_framesIndices</span><span class="p">))</span></div>
+        
+<div class="viewcode-block" id="retrieval_engine.retrieve_tree"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.retrieve_tree">[docs]</a>    <span class="k">def</span> <span class="nf">retrieve_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">query_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">sequence_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">start_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">end_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">top_k</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span><span class="n">load_tree</span><span class="o">=</span><span class="kc">False</span> <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Tree-based retrieval engine.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        query_name : string</span>
+<span class="sd">            Name of the sequence to retrieve. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        sequence_name : string or None, optional</span>
+<span class="sd">            This parameter should be given if one wants to use &quot;start_frame_index&quot; &amp; &quot;end_frame_index&quot; . The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        start_frame_index : int, optional</span>
+<span class="sd">            Starting frame index. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        end_frame_index : int, optional</span>
+<span class="sd">            Ending frame index. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        top_k : int, optional</span>
+<span class="sd">            Top closest sequences to retrieve. The default is 10.</span>
+<span class="sd">            </span>
+<span class="sd">        load_tree : boolean, optional</span>
+<span class="sd">            The default is False. It should set to &#39;True&#39; if the saved tree should be loaded. Use &#39;False&#39; if the data has been changed or if it is new.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Dictionary</span>
+<span class="sd">            The keys of this dictionary are the retrieved sequences or subsequences names. And the values are lists of the following form [parent_sequence_name,(starting frame indice, ending frame indice)]. &quot;parent_sequence_name&quot; is the sequence name for which the frame indices are given.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="n">tree_path</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;./../data/ball_tree_signatures_Noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">.joblib&#39;</span>
+        
+        <span class="c1">#--Retrieve subsequence if frames indexes are given.</span>
+        <span class="k">if</span> <span class="n">sequence_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="k">assert</span> <span class="kc">None</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="n">start_frame_index</span><span class="p">,</span><span class="n">end_frame_index</span><span class="p">],</span><span class="s2">&quot;Please provide valid values for &#39;start_frame_index&#39; &amp; &#39;end_frame_index.&#39; &quot;</span>
+            <span class="n">query_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">add_subsequence</span><span class="p">(</span><span class="n">sequence_name</span><span class="p">,</span> <span class="n">start_frame_index</span><span class="p">,</span> <span class="n">end_frame_index</span><span class="p">)</span>
+            <span class="n">load_tree</span> <span class="o">=</span> <span class="kc">False</span>      
+        <span class="k">assert</span> <span class="n">query_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;query_name can&#39;t be &#39;None&#39;.Give valid query_name.&quot;</span>
+        
+        <span class="c1">#--Loading or computing data</span>
+        <span class="k">if</span> <span class="n">load_tree</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tree_path</span><span class="p">):</span>
+            <span class="n">tree</span><span class="p">,</span><span class="n">all_windows_signatures</span><span class="p">,</span><span class="n">all_windows_names</span><span class="p">,</span> <span class="n">windows_maping</span><span class="p">,</span><span class="n">all_windows</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="n">tree_path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Computing ball tree....&#39;</span><span class="p">)</span>
+            <span class="n">tree</span><span class="p">,</span><span class="n">all_windows_signatures</span><span class="p">,</span><span class="n">all_windows_names</span><span class="p">,</span> <span class="n">windows_maping</span><span class="p">,</span><span class="n">all_windows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_ball_tree</span><span class="p">()</span>
+
+        
+        <span class="c1">#---Retrieval</span>
+        <span class="n">all_indices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">window</span> <span class="ow">in</span> <span class="n">windows_maping</span><span class="p">[</span><span class="n">query_name</span><span class="p">]:</span>
+            <span class="n">window_index</span> <span class="o">=</span> <span class="n">all_windows_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">window</span><span class="p">)</span>
+            <span class="n">window_signature</span> <span class="o">=</span> <span class="n">all_windows_signatures</span><span class="p">[</span><span class="n">window_index</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">dist</span><span class="p">,</span> <span class="n">inds</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">window_signature</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">top_k</span><span class="p">)</span>
+            <span class="n">all_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inds</span><span class="p">)</span>
+        
+        <span class="n">all_indices</span><span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">all_indices</span><span class="p">)</span>
+        <span class="n">unique</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">all_indices</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[</span><span class="n">ind</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span><span class="n">ind</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">counts</span><span class="p">,</span><span class="n">unique</span><span class="p">),</span><span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)][:</span><span class="n">top_k</span><span class="p">]</span>
+        
+        <span class="n">retrieved_sequences</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span> <span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\B_window_&quot;</span><span class="p">,</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> 
+        <span class="n">func_1</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span> <span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;_sub_\B&quot;</span><span class="p">,</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="n">out</span> <span class="p">:</span> 
+            <span class="n">selected</span> <span class="o">=</span> <span class="n">all_windows_names</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+            
+            <span class="c1">#--Getting sequence name and updating dictionary.</span>
+            <span class="k">if</span> <span class="n">selected</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;_sub_&quot;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">:</span>
+                <span class="n">retrieved_sequences</span><span class="p">[</span><span class="n">selected</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">func_1</span><span class="p">(</span><span class="n">selected</span><span class="p">),</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get_frames_indices</span><span class="p">(</span><span class="n">all_windows</span><span class="p">[</span><span class="n">selected</span><span class="p">])]</span>
+            <span class="k">else</span> <span class="p">:</span>
+                <span class="n">retrieved_sequences</span><span class="p">[</span><span class="n">selected</span><span class="p">]</span> <span class="o">=</span><span class="p">[</span><span class="n">func</span><span class="p">(</span><span class="n">selected</span><span class="p">),</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get_frames_indices</span><span class="p">(</span><span class="n">all_windows</span><span class="p">[</span><span class="n">selected</span><span class="p">])]</span>
+            
+            
+        <span class="k">return</span> <span class="n">retrieved_sequences</span></div>
+    
+<div class="viewcode-block" id="retrieval_engine.retrieval_lsh"><a class="viewcode-back" href="../../retrieval_engine.html#src.retrieval_system.retrieval_engine.retrieval_lsh">[docs]</a>    <span class="k">def</span> <span class="nf">retrieval_lsh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">query_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">sequence_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">start_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">end_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">top_k</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Lsh-based retrieval engine.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        query_name : string or None, optional</span>
+<span class="sd">            The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        sequence_name : string or None, optional</span>
+<span class="sd">            This parameter should be given if one wants to use &quot;start_frame_index&quot; &amp; &quot;end_frame_index&quot; . The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        start_frame_index : int, optional</span>
+<span class="sd">            Starting frame index. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        end_frame_index : int, optional</span>
+<span class="sd">            Ending frame index. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        top_k : int, optional</span>
+<span class="sd">            Top closest sequences to retrieve. The default is 10.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Dictionary</span>
+<span class="sd">            The keys of this dictionary are the retrieved sequences or subsequences names. And the values are lists of the following form [parent_sequence_name,(starting frame indice, ending frame indice)]. &quot;parent_sequence_name&quot; is the sequence name for which the frame indices are given.One should divide by the frame rate &#39;fps&#39; to get location in &#39;seconds&#39; in the parent sequence.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+  
+        <span class="c1">#--</span>
+        <span class="k">if</span> <span class="n">sequence_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="k">assert</span> <span class="kc">None</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="n">start_frame_index</span><span class="p">,</span><span class="n">end_frame_index</span><span class="p">],</span><span class="s2">&quot;Please provide valid values for &#39;start_frame_index&#39; &amp; &#39;end_frame_index.&#39; &quot;</span>
+            <span class="n">query_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">add_subsequence</span><span class="p">(</span><span class="n">sequence_name</span><span class="p">,</span> <span class="n">start_frame_index</span><span class="p">,</span> <span class="n">end_frame_index</span><span class="p">)</span>
+        
+        <span class="k">assert</span> <span class="n">query_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;query_name can&#39;t be &#39;None&#39;.Give valid query_name.&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lsh_engine</span> <span class="ow">is</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">compute_lsh_engine</span><span class="p">(</span><span class="n">top_k</span><span class="o">=</span><span class="n">top_k</span><span class="p">)</span>
+            
+        <span class="c1">#--Fetch engine, signature,windows</span>
+        <span class="n">engine</span><span class="p">,</span><span class="n">signatures_dataset</span><span class="p">,</span><span class="n">all_windows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lsh_engine</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">signatures_dataset</span><span class="p">[</span><span class="n">query_name</span><span class="p">]</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">neighbours</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+        
+        <span class="c1">#--Thses functions will get the parent sequence of a given subsequence</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span> <span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\B_window_&quot;</span><span class="p">,</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">func_1</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span> <span class="p">:</span> <span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;_sub_\B&quot;</span><span class="p">,</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">parentNames_framesIndices</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span> <span class="p">:</span>
+            <span class="c1">#--Getting sequence name and updating dictionary.</span>
+            <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;_sub_&quot;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">:</span>
+                <span class="n">parentNames_framesIndices</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">func_1</span><span class="p">(</span><span class="n">name</span><span class="p">),</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get_frames_indices</span><span class="p">(</span><span class="n">all_windows</span><span class="p">[</span><span class="n">name</span><span class="p">])])</span>
+            <span class="k">else</span> <span class="p">:</span>
+                <span class="n">parentNames_framesIndices</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">func</span><span class="p">(</span><span class="n">name</span><span class="p">),</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get_frames_indices</span><span class="p">(</span><span class="n">all_windows</span><span class="p">[</span><span class="n">name</span><span class="p">])])</span>
+
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">names</span><span class="p">,</span><span class="n">parentNames_framesIndices</span><span class="p">))</span></div></div>
+    
+<span class="c1">#----------------------------------------- Demo -------------------------------- </span>
+
+<span class="k">if</span> <span class="s2">&quot;main&quot;</span> <span class="o">==</span> <span class="s2">&quot;0main&quot;</span> <span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;This code runs queries and compare the 3 differents retrieval techniques in terms of speed,</span>
+<span class="sd">    and relative similarity with respect to the reference method.</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    PS :One should either load embeddings or compute new embeddings. If new data is data then, one should compute new embeddings.</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">time</span>
+    <span class="n">init</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    
+    <span class="n">engine</span> <span class="o">=</span> <span class="n">retrieval_engine</span><span class="p">(</span><span class="n">num_subsequences</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">select_high_variance_features</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">include_videos_allMoCap</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="c1">#-- Either load or compute embeddings.</span>
+    <span class="c1">#If new csv files are added then, compute new embeddings</span>
+    <span class="c1">#engine.load_embedding()</span>
+    <span class="n">engine</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">()</span>
+    
+    <span class="c1">#--If one computes the predictor then it should compute cluster predictor</span>
+    <span class="n">engine</span><span class="o">.</span><span class="n">compute_cluster_predictor</span><span class="p">(</span><span class="n">save</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> 
+    <span class="c1">#engine.load_predictor()</span>
+    
+    <span class="c1">#--Other parameters.</span>
+    <span class="n">engine</span><span class="o">.</span><span class="n">ball_tree_window_size</span> <span class="o">=</span> <span class="mi">20</span>
+    <span class="n">engine</span><span class="o">.</span><span class="n">lsh_engine</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="n">query_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">engine</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Number of sequences : &#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">query_names</span><span class="p">))</span>
+    <span class="n">distances</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">distances_2</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">distances_3</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">times</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">times_1</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">times_2</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">top_k</span><span class="o">=</span> <span class="mi">10</span>
+    
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">query_names</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="o">*</span><span class="mi">50</span><span class="p">)</span>
+        <span class="n">retrieved_info_1</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">retrieve_tree</span><span class="p">(</span><span class="n">query_name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span><span class="n">sequence_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">start_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">end_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">top_k</span> <span class="o">=</span> <span class="n">top_k</span><span class="p">,</span> <span class="n">load_tree</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">names_tree</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">retrieved_info_1</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Query name : &quot;</span><span class="p">,</span><span class="n">name</span><span class="p">,</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">times_1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+        
+        <span class="n">retrieved_info_2</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">retrieval_lsh</span><span class="p">(</span><span class="n">query_name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span><span class="n">sequence_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">start_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">end_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">top_k</span><span class="o">=</span><span class="n">top_k</span><span class="p">)</span>
+        <span class="n">names_lsh</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">retrieved_info_2</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">times_2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span> <span class="n">times_1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+        
+        <span class="n">retrieved_info</span><span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">retrieve_reference</span><span class="p">(</span><span class="n">query_name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span><span class="n">sequence_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">start_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">end_frame_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">top_k</span> <span class="o">=</span> <span class="n">top_k</span><span class="p">,</span><span class="n">load_emdeddings</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">load_clusters</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">names_reference</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">retrieved_info</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="c1">#print(name,&#39;\n\n&#39;,names_,&#39;\n\n&#39;,names_1,&#39;\n\n&#39;,names)</span>
+
+        <span class="n">times</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span> <span class="o">-</span> <span class="n">times_2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">times_1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">similarity_between_methods_2</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">-</span> <span class="mi">100</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">names_reference</span> <span class="o">+</span> <span class="n">names_lsh</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">top_k</span><span class="p">)</span>
+        <span class="n">similarity_between_methods</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">-</span> <span class="mi">100</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">names_reference</span> <span class="o">+</span> <span class="n">names_tree</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">top_k</span><span class="p">)</span> 
+        <span class="n">similarity_between_methods_3</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">-</span> <span class="mi">100</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">names_tree</span> <span class="o">+</span> <span class="n">names_lsh</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">top_k</span><span class="p">)</span>
+        
+        <span class="n">distances</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">similarity_between_methods</span><span class="p">)</span>
+        <span class="n">distances_2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">similarity_between_methods_2</span><span class="p">)</span>
+        <span class="n">distances_3</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">similarity_between_methods_3</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"> Total time : </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">init</span><span class="si">:</span><span class="s1">0.2f</span><span class="si">}</span><span class="s1"> seconds.&#39;</span><span class="p">)</span>
+    
+    <span class="c1">#--Plotting</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">sharex</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span><span class="mi">15</span><span class="p">))</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">distances</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Tree vs Reference, median = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">distances</span><span class="p">))</span><span class="si">:</span><span class="s1">0.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">distances_2</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;LSH vs Reference, median = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">distances_2</span><span class="p">))</span><span class="si">:</span><span class="s1">0.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">distances_3</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;LSH vs Tree, median = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">distances_3</span><span class="p">))</span><span class="si">:</span><span class="s1">0.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;%&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    
+    <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span><span class="s1">&#39;-g&#39;</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Median : </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">))</span><span class="si">:</span><span class="s1">0.6f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Time in seconds&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    
+    <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times_1</span><span class="p">,</span><span class="s1">&#39;-r&#39;</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Median : </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times_1</span><span class="p">))</span><span class="si">:</span><span class="s1">0.6f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Sequences&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Time in seconds&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    
+    <span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times_2</span><span class="p">,</span><span class="s1">&#39;-m&#39;</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Median : </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times_2</span><span class="p">))</span><span class="si">:</span><span class="s1">0.6f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Time in seconds&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+
+    <span class="c1">#--</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Methods similarity in %&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Time for sliding window technique . Top: </span><span class="si">{</span><span class="n">top_k</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Time for ball tree technique, window size :</span><span class="si">{</span><span class="n">engine</span><span class="o">.</span><span class="n">ball_tree_window_size</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Time for lsh technique, window size :</span><span class="si">{</span><span class="n">engine</span><span class="o">.</span><span class="n">ball_tree_window_size</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    
+    
+    <span class="c1">#print(distances)</span>
+    
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.retrieval_system</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>

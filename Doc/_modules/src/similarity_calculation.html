@@ -1,0 +1,321 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.similarity_calculation &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="../../_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.similarity_calculation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.similarity_calculation</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tslearn.metrics</span>   
+<span class="kn">from</span> <span class="nn">skimage.metrics</span> <span class="kn">import</span> <span class="n">structural_similarity</span> <span class="k">as</span> <span class="n">ssim</span>
+<span class="c1">#---------------------------------Similarity calculation---------------------------------------------------------------</span>
+<div class="viewcode-block" id="similarity_dtw"><a class="viewcode-back" href="../../Similarity.html#src.similarity_calculation.similarity_dtw">[docs]</a><span class="k">def</span> <span class="nf">similarity_dtw</span><span class="p">(</span><span class="n">input1</span><span class="p">,</span><span class="n">input2</span><span class="p">,</span><span class="n">metric</span><span class="o">=</span><span class="s2">&quot;cosine&quot;</span><span class="p">,</span><span class="n">itakura</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">itakura_max_slope</span><span class="o">=</span><span class="mf">2.</span><span class="p">,</span><span class="n">sakoe_chiba</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">sakoe_chiba_radius</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This method will compute the similarity between the two videos.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    video1 : 2D numpy array</span>
+<span class="sd">        the pre-processed features of input1 is a numpy array of shape (size1*d) where each column is a frame.</span>
+<span class="sd">        </span>
+<span class="sd">    video2 : 2D numpy array</span>
+<span class="sd">        the pre-processed features of input2 with is a numpy array of shape (size2*d).</span>
+<span class="sd">        </span>
+<span class="sd">    metric : String, optional</span>
+<span class="sd">        specifies the metric to use for calculating the similarity using DTW</span>
+<span class="sd">        if metric is not given then it assumes an euclidean distance.</span>
+<span class="sd">        The default is &quot;cosine&quot;.</span>
+<span class="sd">        We advise to use one of the these: ‘chebyshev’, ‘cityblock’,</span>
+<span class="sd">        ‘correlation’, ‘cosine’, ‘seuclidean’, ‘sqeuclidean’.</span>
+<span class="sd">        it follows  &#39;scipy.spacial.distance.pdist&#39; as it is the underlying function being run.</span>
+<span class="sd">        </span>
+<span class="sd">    itakura : Boolean, optional</span>
+<span class="sd">        Specifies if the itakura algorithm is to be used. The default is False.</span>
+<span class="sd">    </span>
+<span class="sd">    itakura_max_slope : float, optional</span>
+<span class="sd">        The default is 2..</span>
+<span class="sd">        </span>
+<span class="sd">    sakoe_chiba : Boolean, optional</span>
+<span class="sd">        specifies if the sakoe_chiba algorithm is to be used. The default is True.</span>
+<span class="sd">        </span>
+<span class="sd">    sakoe_chiba_radius : Int, optional</span>
+<span class="sd">        The restriction window size along the diagonal. The default is 10.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    cost : float</span>
+<span class="sd">        The similarity value.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">#--Restricting the path to resemble a parallelogram --&gt; itakura method</span>
+    <span class="k">if</span> <span class="n">itakura</span> <span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span><span class="n">cost</span> <span class="o">=</span> <span class="n">tslearn</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">dtw_path_from_metric</span><span class="p">(</span><span class="n">input1</span><span class="p">,</span><span class="n">input2</span><span class="p">,</span><span class="n">metric</span><span class="p">,</span><span class="n">global_constraint</span><span class="o">=</span><span class="s2">&quot;itakura&quot;</span><span class="p">,</span>
+                                   <span class="n">itakura_max_slope</span><span class="o">=</span><span class="n">itakura_max_slope</span><span class="p">)</span>
+    
+    <span class="c1">#--Restricting the path to resemble a band --&gt; sakoe_chiba method</span>
+    <span class="k">if</span> <span class="n">sakoe_chiba</span> <span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span><span class="n">cost</span> <span class="o">=</span> <span class="n">tslearn</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">dtw_path_from_metric</span><span class="p">(</span><span class="n">input1</span><span class="p">,</span><span class="n">input2</span><span class="p">,</span><span class="n">metric</span><span class="p">,</span><span class="n">global_constraint</span><span class="o">=</span><span class="s2">&quot;sakoe_chiba&quot;</span><span class="p">,</span>
+                                   <span class="n">sakoe_chiba_radius</span><span class="o">=</span><span class="n">sakoe_chiba_radius</span><span class="p">)</span>
+        
+    <span class="c1">#--Using the traditional formulation that goes through the whole distance matrix</span>
+    <span class="k">else</span> <span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span><span class="n">cost</span> <span class="o">=</span> <span class="n">tslearn</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">dtw_path_from_metric</span><span class="p">(</span><span class="n">input1</span><span class="p">,</span> <span class="n">input2</span><span class="p">)</span>
+    
+    
+    <span class="k">return</span> <span class="n">cost</span></div>
+
+
+
+<div class="viewcode-block" id="similarity_soft_dtw"><a class="viewcode-back" href="../../Similarity.html#src.similarity_calculation.similarity_soft_dtw">[docs]</a><span class="k">def</span> <span class="nf">similarity_soft_dtw</span> <span class="p">(</span><span class="n">input1</span><span class="p">,</span> <span class="n">input2</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This method uses a novel algorithm that uses a soft-min approach to dynamic time wrapping </span>
+
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input1 : 2D numpy array of floats</span>
+<span class="sd">        The first input</span>
+<span class="sd">        </span>
+<span class="sd">    input2 : 2D numpy array of floats</span>
+<span class="sd">        The second input.</span>
+<span class="sd">        </span>
+<span class="sd">    gamma : int, optional</span>
+<span class="sd">        When gamma = 0, then it is equivalent to the standard DTW. The default is 1.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    score : float</span>
+<span class="sd">        The lowest the score, the highest similarity.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+                
+    <span class="n">score</span> <span class="o">=</span> <span class="n">tslearn</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">soft_dtw</span><span class="p">(</span><span class="n">input1</span><span class="p">,</span> <span class="n">input2</span><span class="p">,</span><span class="n">gamma</span><span class="p">)</span>
+        
+    <span class="k">return</span> <span class="n">score</span></div>
+
+<div class="viewcode-block" id="similarity_gak"><a class="viewcode-back" href="../../Similarity.html#src.similarity_calculation.similarity_gak">[docs]</a><span class="k">def</span> <span class="nf">similarity_gak</span><span class="p">(</span><span class="n">input1</span><span class="p">,</span><span class="n">input2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function computes the distance between two inputs using the global alignment kernel. For more information visit : https://tslearn.readthedocs.io/en/stable/gen_modules/metrics/tslearn.metrics.gak.html#tslearn.metrics.gak</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input1 : 2D numpy array of floats</span>
+<span class="sd">        The first input</span>
+<span class="sd">        </span>
+<span class="sd">    input2 : 2D numpy array of floats</span>
+<span class="sd">        The second input.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    score : float</span>
+<span class="sd">        The lowest the score, the highest similarity.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1">#--Computing sigma</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="mf">7.5</span> <span class="c1">#tslearn.metrics.sigma_gak(np.vstack([input1,input2]),n_samples=input1.shape[0],random_state=0)</span>
+    
+    <span class="c1">#--Computing the score</span>
+    <span class="n">score</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">tslearn</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">gak</span><span class="p">(</span><span class="n">input1</span><span class="p">,</span> <span class="n">input2</span><span class="p">,</span><span class="n">sigma</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">score</span></div>
+
+<div class="viewcode-block" id="similarity_images"><a class="viewcode-back" href="../../Similarity.html#src.similarity_calculation.similarity_images">[docs]</a><span class="k">def</span> <span class="nf">similarity_images</span><span class="p">(</span><span class="n">image_1</span><span class="p">,</span><span class="n">image_2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Computes the mean structural similarity index between two images</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    image_1 : 2D numpy array</span>
+<span class="sd">        </span>
+<span class="sd">        </span>
+<span class="sd">    image_2 : 2D numpy array</span>
+<span class="sd">        </span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    score : float</span>
+<span class="sd">        Mean structural similarity index between the two input images.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">score</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">ssim</span><span class="p">(</span><span class="n">image_1</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span> <span class="n">image_2</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span> <span class="n">multichannel</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">gaussian_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">score</span></div>
+    
+<span class="c1">#---------------------------------Retrieving top k--------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="retrieve_top_k"><a class="viewcode-back" href="../../Similarity.html#src.similarity_calculation.retrieve_top_k">[docs]</a><span class="k">def</span> <span class="nf">retrieve_top_k</span><span class="p">(</span><span class="n">input_</span> <span class="p">,</span> <span class="n">input_name</span><span class="p">,</span> <span class="n">lookUp_dataset</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">func</span> <span class="o">=</span> <span class="n">similarity_gak</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function retrieves the top k closest and &#39;farest&#39; motions words.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_ : 2D numpy array</span>
+<span class="sd">        The shape is : (num_samples,num_features).</span>
+<span class="sd">        </span>
+<span class="sd">    input_name : string</span>
+<span class="sd">        The name of the motion word for which we want to compute the closest and farest motion words.</span>
+<span class="sd">        </span>
+<span class="sd">    lookUp_dataset : Dictionary</span>
+<span class="sd">        The dataset that is to be used to look for the closest and farest motion words.</span>
+<span class="sd">        </span>
+<span class="sd">    k : unsigned int, optional</span>
+<span class="sd">        The number of modion words to retrieve. The default is 10.</span>
+<span class="sd">        The &#39;farest&#39; represent hard negatives so they are not the top k with worst score but the k motion words having scores coming just after the median score. </span>
+<span class="sd">    </span>
+<span class="sd">    func : string.</span>
+<span class="sd">        {&quot;similarity_soft_dtw&quot;,&quot;similarity_dtw&quot;,&quot;similarity_gak&quot;}.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    closest_values : list of numpy arrays</span>
+<span class="sd">        K closest values.</span>
+<span class="sd">        </span>
+<span class="sd">    closest_names : list of strings</span>
+<span class="sd">        Names of k closest values.</span>
+<span class="sd">        </span>
+<span class="sd">    farest_values : list of numy arrays</span>
+<span class="sd">        k &#39;farest&#39; values.</span>
+<span class="sd">        </span>
+<span class="sd">    farest_names : list of strings</span>
+<span class="sd">        Names of k &#39;farest&#39; values.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span><span class="p">,</span> <span class="s2">&quot;k must be an integer&quot;</span>
+    <span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lookUp_dataset</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span><span class="s2">&quot; k is too large, use a smaller value for k.&quot;</span>
+    
+       
+    <span class="c1">#--iterating over values in lookUp_dataset</span>
+    <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">reference</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">input_</span><span class="p">,</span><span class="n">input_</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">lookUp_dataset</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="n">input_name</span> <span class="p">:</span>
+            <span class="n">score</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">reference</span> <span class="o">-</span> <span class="n">func</span><span class="p">(</span><span class="n">input_</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span> 
+            <span class="n">scores</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">score</span><span class="p">)</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        
+    <span class="c1">#--sorting</span>
+    <span class="n">sorted_k</span> <span class="o">=</span> <span class="p">[[</span><span class="n">name</span><span class="p">,</span><span class="n">score</span><span class="p">]</span> <span class="k">for</span> <span class="n">score</span><span class="p">,</span><span class="n">name</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span><span class="n">names</span><span class="p">))]</span> 
+    
+    <span class="c1">#--Getting the top k closest</span>
+    <span class="n">closest_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">sorted_k</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span>      
+    <span class="n">closest_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">lookUp_dataset</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>  <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">closest_names</span><span class="p">]</span>
+    <span class="n">closest_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">closest_values</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    
+    <span class="c1">#--Getting the hard negative samples with scores coming after the median.</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span>
+    <span class="n">farest_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">sorted_k</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="o">+</span><span class="n">k</span><span class="p">)]</span>
+    <span class="n">farest_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">lookUp_dataset</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>  <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">farest_names</span><span class="p">]</span>
+    <span class="n">farest_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">farest_values</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    
+    <span class="c1">#--Storing results in a dictionary</span>
+    <span class="k">return</span> <span class="n">closest_values</span><span class="p">,</span> <span class="n">closest_names</span><span class="p">,</span> <span class="n">farest_values</span><span class="p">,</span><span class="n">farest_names</span></div>
+    
+
+
+
+        
+
+  
+
+
+
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.similarity_calculation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>

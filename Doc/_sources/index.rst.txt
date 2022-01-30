@@ -1,0 +1,29 @@
+.. Deep l for similarity documentation master file, created by
+   sphinx-quickstart on Mon Mar 22 16:53:32 2021.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to "Deep learning for similarity's" documentation!
+==========================================================
+This is the documentation of the implemented API.
+
+To run the GUI please do "streamlit run gui.py" from the command line. 
+Make sure that 'streamlit' is installed.
+
+
+.. toctree::
+   :maxdepth: 3
+   :caption: Contents:
+
+   deepArchitecture
+   Similarity
+   dataPreparation
+   evaluation
+   retrieval_engine
+   
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

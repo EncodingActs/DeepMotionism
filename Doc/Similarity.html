@@ -1,0 +1,233 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Similarity Calculation &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Data Preparation" href="dataPreparation.html" />
+    <link rel="prev" title="Deep network Architecture" href="deepArchitecture.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="dataPreparation.html" title="Data Preparation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="deepArchitecture.html" title="Deep network Architecture"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Similarity Calculation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-src.similarity_calculation">
+<span id="similarity-calculation"></span><h1>Similarity Calculation<a class="headerlink" href="#module-src.similarity_calculation" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="src.similarity_calculation.retrieve_top_k">
+<code class="sig-prename descclassname">src.similarity_calculation.</code><code class="sig-name descname">retrieve_top_k</code><span class="sig-paren">(</span><em class="sig-param">input_</em>, <em class="sig-param">input_name</em>, <em class="sig-param">lookUp_dataset</em>, <em class="sig-param">k=10</em>, <em class="sig-param">func=&lt;function similarity_gak&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/similarity_calculation.html#retrieve_top_k"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.similarity_calculation.retrieve_top_k" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function retrieves the top k closest and ‘farest’ motions words.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> (<em>2D numpy array</em>) – The shape is : (num_samples,num_features).</p></li>
+<li><p><strong>input_name</strong> (<em>string</em>) – The name of the motion word for which we want to compute the closest and farest motion words.</p></li>
+<li><p><strong>lookUp_dataset</strong> (<em>Dictionary</em>) – The dataset that is to be used to look for the closest and farest motion words.</p></li>
+<li><p><strong>k</strong> (<em>unsigned int</em><em>, </em><em>optional</em>) – The number of modion words to retrieve. The default is 10.
+The ‘farest’ represent hard negatives so they are not the top k with worst score but the k motion words having scores coming just after the median score.</p></li>
+<li><p><strong>func</strong> (<em>string.</em>) – {“similarity_soft_dtw”,”similarity_dtw”,”similarity_gak”}.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>closest_values</strong> (<em>list of numpy arrays</em>) – K closest values.</p></li>
+<li><p><strong>closest_names</strong> (<em>list of strings</em>) – Names of k closest values.</p></li>
+<li><p><strong>farest_values</strong> (<em>list of numy arrays</em>) – k ‘farest’ values.</p></li>
+<li><p><strong>farest_names</strong> (<em>list of strings</em>) – Names of k ‘farest’ values.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.similarity_calculation.similarity_dtw">
+<code class="sig-prename descclassname">src.similarity_calculation.</code><code class="sig-name descname">similarity_dtw</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">input1</span></em>, <em class="sig-param"><span class="n">input2</span></em>, <em class="sig-param"><span class="n">metric</span><span class="o">=</span><span class="default_value">'cosine'</span></em>, <em class="sig-param"><span class="n">itakura</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">itakura_max_slope</span><span class="o">=</span><span class="default_value">2.0</span></em>, <em class="sig-param"><span class="n">sakoe_chiba</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">sakoe_chiba_radius</span><span class="o">=</span><span class="default_value">10</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/similarity_calculation.html#similarity_dtw"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.similarity_calculation.similarity_dtw" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method will compute the similarity between the two videos.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>video1</strong> (<em>2D numpy array</em>) – the pre-processed features of input1 is a numpy array of shape (size1*d) where each column is a frame.</p></li>
+<li><p><strong>video2</strong> (<em>2D numpy array</em>) – the pre-processed features of input2 with is a numpy array of shape (size2*d).</p></li>
+<li><p><strong>metric</strong> (<em>String</em><em>, </em><em>optional</em>) – specifies the metric to use for calculating the similarity using DTW
+if metric is not given then it assumes an euclidean distance.
+The default is “cosine”.
+We advise to use one of the these: ‘chebyshev’, ‘cityblock’,
+‘correlation’, ‘cosine’, ‘seuclidean’, ‘sqeuclidean’.
+it follows  ‘scipy.spacial.distance.pdist’ as it is the underlying function being run.</p></li>
+<li><p><strong>itakura</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – Specifies if the itakura algorithm is to be used. The default is False.</p></li>
+<li><p><strong>itakura_max_slope</strong> (<em>float</em><em>, </em><em>optional</em>) – The default is 2..</p></li>
+<li><p><strong>sakoe_chiba</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – specifies if the sakoe_chiba algorithm is to be used. The default is True.</p></li>
+<li><p><strong>sakoe_chiba_radius</strong> (<em>Int</em><em>, </em><em>optional</em>) – The restriction window size along the diagonal. The default is 10.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>cost</strong> – The similarity value.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.similarity_calculation.similarity_gak">
+<code class="sig-prename descclassname">src.similarity_calculation.</code><code class="sig-name descname">similarity_gak</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">input1</span></em>, <em class="sig-param"><span class="n">input2</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/similarity_calculation.html#similarity_gak"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.similarity_calculation.similarity_gak" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function computes the distance between two inputs using the global alignment kernel. For more information visit : <a class="reference external" href="https://tslearn.readthedocs.io/en/stable/gen_modules/metrics/tslearn.metrics.gak.html#tslearn.metrics.gak">https://tslearn.readthedocs.io/en/stable/gen_modules/metrics/tslearn.metrics.gak.html#tslearn.metrics.gak</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input1</strong> (<em>2D numpy array of floats</em>) – The first input</p></li>
+<li><p><strong>input2</strong> (<em>2D numpy array of floats</em>) – The second input.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>score</strong> – The lowest the score, the highest similarity.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.similarity_calculation.similarity_images">
+<code class="sig-prename descclassname">src.similarity_calculation.</code><code class="sig-name descname">similarity_images</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">image_1</span></em>, <em class="sig-param"><span class="n">image_2</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/similarity_calculation.html#similarity_images"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.similarity_calculation.similarity_images" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the mean structural similarity index between two images</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>image_1</strong> (<em>2D numpy array</em>) – </p>
+</dd>
+</dl>
+<p>image_2 : 2D numpy array</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>score</strong> – Mean structural similarity index between the two input images.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.similarity_calculation.similarity_soft_dtw">
+<code class="sig-prename descclassname">src.similarity_calculation.</code><code class="sig-name descname">similarity_soft_dtw</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">input1</span></em>, <em class="sig-param"><span class="n">input2</span></em>, <em class="sig-param"><span class="n">gamma</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/similarity_calculation.html#similarity_soft_dtw"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.similarity_calculation.similarity_soft_dtw" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method uses a novel algorithm that uses a soft-min approach to dynamic time wrapping</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input1</strong> (<em>2D numpy array of floats</em>) – The first input</p></li>
+<li><p><strong>input2</strong> (<em>2D numpy array of floats</em>) – The second input.</p></li>
+<li><p><strong>gamma</strong> (<em>int</em><em>, </em><em>optional</em>) – When gamma = 0, then it is equivalent to the standard DTW. The default is 1.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>score</strong> – The lowest the score, the highest similarity.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="deepArchitecture.html"
+                        title="previous chapter">Deep network Architecture</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="dataPreparation.html"
+                        title="next chapter">Data Preparation</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/Similarity.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="dataPreparation.html" title="Data Preparation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="deepArchitecture.html" title="Deep network Architecture"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Similarity Calculation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>

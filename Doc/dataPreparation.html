@@ -1,0 +1,552 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Preparation &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Evaluation" href="evaluation.html" />
+    <link rel="prev" title="Similarity Calculation" href="Similarity.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="evaluation.html" title="Evaluation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Similarity.html" title="Similarity Calculation"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Data Preparation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-src.dataPreparation">
+<span id="data-preparation"></span><h1>Data Preparation<a class="headerlink" href="#module-src.dataPreparation" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt id="src.dataPreparation.data_preparation">
+<em class="property">class </em><code class="sig-prename descclassname">src.dataPreparation.</code><code class="sig-name descname">data_preparation</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path_to_training_dataset</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="o">=</span><span class="default_value">'train'</span></em>, <em class="sig-param"><span class="n">include_noisy_data</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation" title="Permalink to this definition">¶</a></dt>
+<dd><p>The class data_preparation allows to gather all the tools necessary to do the following :</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>mine extracted joint rotation angles</p></li>
+<li><p>compute motion words</p></li>
+<li><p>transform motion words into images (recurrence plot, markov transational fields, gramian angular fields)</p></li>
+<li><p>compute training datasets with different distance metrics : soft-DTW, DTW, global alignment kernel (gak) available at self.similarity_functions</p></li>
+</ul>
+</div></blockquote>
+<dl class="simple">
+<dt>The two most important class members are :</dt><dd><ul class="simple">
+<li><p>self.motion_word_dataset –&gt; is a dictionary that maps each computed motion word to its value as follow {name:value}.</p></li>
+<li><p>self.mapping_Of_motionWordsNames –&gt; is a dictionary that maps each sequence to its motion words as follows {sequence_1:[motionword_1,motionword_2,…,motionword_n]}.The motion words have the same name as the sequence except that we add “_k” where k specifies its location in the sequence</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.add_subsequence" title="src.dataPreparation.data_preparation.add_subsequence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_subsequence</span></code></a>(sequence_name, …)</p></td>
+<td><p>Creates a new subsequence from  starting and ending frame indices.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.all_motion_word_to_images" title="src.dataPreparation.data_preparation.all_motion_word_to_images"><code class="xref py py-obj docutils literal notranslate"><span class="pre">all_motion_word_to_images</span></code></a>()</p></td>
+<td><p>This function will transform all motion words into images depending on the imaging method(s) selected.The motion words will be stored in self.motion_word_dataset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.compute_motion_words" title="src.dataPreparation.data_preparation.compute_motion_words"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_motion_words</span></code></a>([divide_sequence])</p></td>
+<td><p>This function computes the motion words from the extracted joint-rotations.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.compute_training_dataset" title="src.dataPreparation.data_preparation.compute_training_dataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_training_dataset</span></code></a>(similarity_function)</p></td>
+<td><p>This function computes the training dataset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.csv_files_mining" title="src.dataPreparation.data_preparation.csv_files_mining"><code class="xref py py-obj docutils literal notranslate"><span class="pre">csv_files_mining</span></code></a>([…])</p></td>
+<td><p>This function runs the feature selection on all the converted bvh files for which the csv files are provided in ‘../data/csv/’.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.dimensionality_reduction" title="src.dataPreparation.data_preparation.dimensionality_reduction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dimensionality_reduction</span></code></a>(augmented_motion_word)</p></td>
+<td><p>This function computes the dimensionality reduction on the input.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.featureExpansion_angles" title="src.dataPreparation.data_preparation.featureExpansion_angles"><code class="xref py py-obj docutils literal notranslate"><span class="pre">featureExpansion_angles</span></code></a>(input_motion_word)</p></td>
+<td><p>This function computes feature augmentation by adding velocity and acceleration across frames.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.get_frames_indices" title="src.dataPreparation.data_preparation.get_frames_indices"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_frames_indices</span></code></a>(list_of_motion_words)</p></td>
+<td><p>It will return the indices of the first and last frames given a list of consecutive motion words.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.get_positive_and_negative" title="src.dataPreparation.data_preparation.get_positive_and_negative"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_positive_and_negative</span></code></a>(anchor_name, k, …)</p></td>
+<td><p>This function computes the positive and negative examples given an anchor motion word.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.load_motion_word_dataset" title="src.dataPreparation.data_preparation.load_motion_word_dataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_motion_word_dataset</span></code></a>([path])</p></td>
+<td><p>This function will load the motion word dataset located at self.path_to_motion_words</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.load_motion_words_context" title="src.dataPreparation.data_preparation.load_motion_words_context"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_motion_words_context</span></code></a>([path])</p></td>
+<td><p>This function loads the motion word context which is a dictionary that records all the motion words extracted from a sequence.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.load_training_dataset" title="src.dataPreparation.data_preparation.load_training_dataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_training_dataset</span></code></a>([path])</p></td>
+<td><p>This function loads the training dataset located at self.path_to_training_dataset.One defines  ‘path_to_training_dataset’ when creating an instance of the class or by doing  ‘data_object.path_to_training_dataset = your_PATH’.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.merge_training_data" title="src.dataPreparation.data_preparation.merge_training_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">merge_training_data</span></code></a>(paths)</p></td>
+<td><p>Merge training datasets</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.set_featureExpansion_parameters" title="src.dataPreparation.data_preparation.set_featureExpansion_parameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_featureExpansion_parameters</span></code></a>([do_PCA, …])</p></td>
+<td><p>Sets feature expansion parameters.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.set_imaging_parameters" title="src.dataPreparation.data_preparation.set_imaging_parameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_imaging_parameters</span></code></a>([do_recurrenceP, …])</p></td>
+<td><p>This method sets the timeseries imaging parameters.If more than one method is chosen you get, images concatenated along the first axis.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.set_motionWords_parameters" title="src.dataPreparation.data_preparation.set_motionWords_parameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_motionWords_parameters</span></code></a>([…])</p></td>
+<td><p>This function set the parameters of computing motion words.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.timeseries_to_images" title="src.dataPreparation.data_preparation.timeseries_to_images"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timeseries_to_images</span></code></a>(motion_word)</p></td>
+<td><p>This function returns a number of “word_size” images.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.dataPreparation.data_preparation.training_dataset_to_images" title="src.dataPreparation.data_preparation.training_dataset_to_images"><code class="xref py py-obj docutils literal notranslate"><span class="pre">training_dataset_to_images</span></code></a>([save_data])</p></td>
+<td><p>It will save the training dataset as a dictionary –&gt; {motion_word_name : [positve,negative]}.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.add_subsequence">
+<code class="sig-name descname">add_subsequence</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">sequence_name</span></em>, <em class="sig-param"><span class="n">starting_frameIndex</span></em>, <em class="sig-param"><span class="n">ending_frameIndex</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.add_subsequence"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.add_subsequence" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a new subsequence from  starting and ending frame indices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequence_name</strong> (<em>string</em>) – It is the name of the sequence.</p></li>
+<li><p><strong>starting_frameIndex</strong> (<em>int</em>) – Starting frame index. It should be at least 1.</p></li>
+<li><p><strong>ending_frameIndex</strong> (<em>int</em>) – Ending frame index. If greater than the actual max frame index, it will take the last frame.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>query_name</strong> – The name of the created subsequence to query.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>string</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.all_motion_word_to_images">
+<code class="sig-name descname">all_motion_word_to_images</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.all_motion_word_to_images"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.all_motion_word_to_images" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function will transform all motion words into images depending on the imaging method(s) selected.The motion words will be stored in self.motion_word_dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p></p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.compute_motion_words">
+<code class="sig-name descname">compute_motion_words</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">divide_sequence</span><span class="o">=</span><span class="default_value">0</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.compute_motion_words"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.compute_motion_words" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function computes the motion words from the extracted joint-rotations.
+The motion words are stored in ‘self.motion_word_dataset’.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>divide_sequence</strong> (<em>int</em><em>, </em><em>optional</em>) – This will emulate having more data which can be useful for the validation stage.Each sequence will be divided in ‘divide_sequence’ parts.  If divide_sequence=0, nothing is done. The default is 0.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.compute_training_dataset">
+<code class="sig-name descname">compute_training_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">similarity_function</span></em>, <em class="sig-param"><span class="n">k</span><span class="o">=</span><span class="default_value">5</span></em>, <em class="sig-param"><span class="n">use_multiple_contexts</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">num_contexts</span><span class="o">=</span><span class="default_value">3</span></em>, <em class="sig-param"><span class="n">use_images</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.compute_training_dataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.compute_training_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function computes the training dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>similarity_function</strong> (<em>the similarity function to use</em>) – </p></li>
+<li><p><strong>k</strong> (<em>int</em>) – k is the number of closest or farest motion words to retrieve.</p></li>
+<li><p><strong>use_images</strong> (<em>boolean</em><em>, </em><em>optional</em>) – States if the image based method should be used. The default is ‘False’.</p></li>
+<li><p><strong>use_multiple_contexts</strong> (<em>boolean</em><em>, </em><em>optional</em>) – This states if multiple contexts should be used instead of one. ‘Multiple contexts’ means that for each motion words we will query through the motion words of 3 motion sequences that have similar names</p></li>
+<li><p><strong>num_contexts</strong> (<em>int</em><em>, </em><em>optional</em>) – Gives the number of contexts to use.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.csv_files_mining">
+<code class="sig-name descname">csv_files_mining</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">select_high_variance_features</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">feature_labels</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">expand_features</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.csv_files_mining"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.csv_files_mining" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function runs the feature selection on all the converted bvh files for which the csv files are provided in ‘../data/csv/’.
+It writes the result to an external file that is available “self.path_to_dataset”.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>select_high_variance_features</strong> (<em>Boolean</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – The default is True. If it is <em>None</em> then all features are considered. no selection is done.</p></li>
+<li><p><strong>feature_labels</strong> (<em>None</em><em> or </em><em>array of strings</em><em>, </em><em>optional</em>) – The strings should be the features names to be selected. We use pandas to read the csv files so it’s important to have to correct columns names. The default is None.</p></li>
+<li><p><strong>expand_features</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – States if features should be expanded. The default is True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.dimensionality_reduction">
+<code class="sig-name descname">dimensionality_reduction</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">augmented_motion_word</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.dimensionality_reduction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.dimensionality_reduction" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function computes the dimensionality reduction on the input. The parameters are defined in ‘set_featureExpansion_parameters’</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>augmented_motion_word</strong> (<em>2D numpy array</em>) – </p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>output</strong></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>2D numpy array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.featureExpansion_angles">
+<code class="sig-name descname">featureExpansion_angles</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">input_motion_word</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.featureExpansion_angles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.featureExpansion_angles" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function computes feature augmentation by adding velocity and acceleration across frames.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>input_motion_word</strong> (<em>2D numpy array</em>) – Input motion_word of size [word_zise,num_features].</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>augmented_motion_word</strong></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>2D numpy array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.get_frames_indices">
+<code class="sig-name descname">get_frames_indices</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">list_of_motion_words</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.get_frames_indices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.get_frames_indices" title="Permalink to this definition">¶</a></dt>
+<dd><p>It will return the indices of the first and last frames given a list of consecutive motion words.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>list_of_motion_words</strong> (<em>list of strings</em>) – The motion words should be reference by their name and not their values.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>It returns a tuple of length 2.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.get_positive_and_negative">
+<code class="sig-name descname">get_positive_and_negative</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">anchor_name</span></em>, <em class="sig-param"><span class="n">k</span></em>, <em class="sig-param"><span class="n">similarity_function</span></em>, <em class="sig-param"><span class="n">context</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">use_images</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.get_positive_and_negative"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.get_positive_and_negative" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function computes the positive and negative examples given an anchor motion word. It is to be reminded that dynamic timpe wrapping is used to get the positive and negative examples. The negative examples are the hard negatives.</p>
+<blockquote>
+<div><p>PS: Ensure that the motion words haven’t been transformed into images before running this function.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>anchor_name</strong> (<em>string</em>) – The name of the motion word for which we want to get the positive and negative examples.</p></li>
+<li><p><strong>k</strong> (<em>int</em>) – k is the number of closest or farest motion words to retrieve.</p></li>
+<li><p><strong>similarity_function</strong> (<em>function</em>) – </p></li>
+<li><p><strong>{similarity_soft_dtw</strong><strong>,</strong><strong>similarity_dtw</strong><strong>,</strong><strong>similarity_gak}</strong> – </p></li>
+<li><p><strong>use_images</strong> (<em>boolean</em><em>, </em><em>optional</em>) – States if the image based method should be used. The default is ‘False’.</p></li>
+<li><p><strong>context</strong> (<em>list of string</em><em> or </em><em>None</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>positive_names</strong> (<em>list of strings</em>) – The list has a length of k.</p></li>
+<li><p><strong>negative_names</strong> (<em>list of strings</em>) – The list has a length of k.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.load_motion_word_dataset">
+<code class="sig-name descname">load_motion_word_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.load_motion_word_dataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.load_motion_word_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function will load the motion word dataset located at self.path_to_motion_words</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>string</em><em>, </em><em>optional</em>) – The default is None.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.load_motion_words_context">
+<code class="sig-name descname">load_motion_words_context</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.load_motion_words_context"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.load_motion_words_context" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function loads the motion word context which is a dictionary that records all the motion words extracted from a sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>string</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – By default the path used if located at self.path_to_motion_words_context. If path is not None then it will be used.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.load_training_dataset">
+<code class="sig-name descname">load_training_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.load_training_dataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.load_training_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function loads the training dataset located at self.path_to_training_dataset.One defines  ‘path_to_training_dataset’ when creating an instance of the class or by doing  ‘data_object.path_to_training_dataset = your_PATH’.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>string</em><em>, </em><em>optional</em>) – Path to training dataset can also be given directly here to be loaded. The default is None.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>data</strong> – DESCRIPTION.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>TYPE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.merge_training_data">
+<code class="sig-name descname">merge_training_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">paths</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.merge_training_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.merge_training_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Merge training datasets</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>paths</strong> (<em>list of strings</em>) – paths to training datasets.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>output</strong> – merged training datasets.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.set_featureExpansion_parameters">
+<code class="sig-name descname">set_featureExpansion_parameters</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">do_PCA</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">number_of_components</span><span class="o">=</span><span class="default_value">50</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.set_featureExpansion_parameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.set_featureExpansion_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets feature expansion parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>do_PCA</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – It says if we should do PCA on the motion word. The default is True.</p></li>
+<li><p><strong>number_of_components</strong> (<em>int</em><em>, </em><em>optional</em>) – The default is 50.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.set_imaging_parameters">
+<code class="sig-name descname">set_imaging_parameters</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">do_recurrenceP</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">RP_threshold</span><span class="o">=</span><span class="default_value">'point'</span></em>, <em class="sig-param"><span class="n">RP_timeDelay</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">RP_dimension</span><span class="o">=</span><span class="default_value">0.25</span></em>, <em class="sig-param"><span class="n">do_GAF</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">GAF_method</span><span class="o">=</span><span class="default_value">'summation'</span></em>, <em class="sig-param"><span class="n">do_MTF</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">square_reshape</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">vertical_stacking</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">horizontal_stacking</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.set_imaging_parameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.set_imaging_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method sets the timeseries imaging parameters.If more than one method is chosen you get, images concatenated along the first axis.</p>
+<p>Choose between : do_recurrenceP, do_GAF, do_MTF and set only one or all of them to “True”.</p>
+<p>For more information on time series imaging visit : <a class="reference external" href="https://pyts.readthedocs.io/en/stable/api.html#module-pyts.image">https://pyts.readthedocs.io/en/stable/api.html#module-pyts.image</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>do_recurrenceP</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – States if a recurrence plot should be computed. The default is True.</p></li>
+<li><p><strong>RP_threshold</strong> (<em>string</em><em>, </em><em>optional</em>) – Threshold for the minimum distance. If None, the recurrence plots are not binarized.
+If ‘point’, the threshold is computed such as percentage percents of the points are smaller than the threshold.
+If ‘distance’, the threshold is computed as the percentage of the maximum distance. The default is ‘point’.</p></li>
+<li><p><strong>RP_timeDelay</strong> (<em>int</em><em> or </em><em>float</em><em>, </em><em>optional</em>) – Time gap between two back-to-back points of the trajectory.
+If float, If float, it represents a percentage of the size of each time series and must be between 0 and 1. The default is 1.</p></li>
+<li><p><strong>RP_dimension</strong> (<em>int</em><em> or </em><em>float</em><em>, </em><em>optional</em>) – Dimension of the trajectory. If float, If float, it represents a percentage of the size of each time series and must be between 0 and 1. The default is 0.25.</p></li>
+<li><p><strong>do_GAF</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – States if the gramian angular field should be computed. The default is False.</p></li>
+<li><p><strong>GAF_method</strong> (<em>string</em><em>, </em><em>optional</em>) – Type of Gramian Angular Field. ‘s’ can be used for ‘summation’ and ‘d’ for ‘difference’. The default is ‘summation’.</p></li>
+<li><p><strong>do_MTF</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – States if the Markov transition field should be computed. The default is False.</p></li>
+<li><p><strong>NB</strong> (<em>if do_MTF == True</em><em> , </em><em>do_GAF == True</em><em>, </em><em>do_recurrenceP == True</em><em>,</em>) – we will get an RGB-like image where the resulting images from these methods have been stacked along the first channel i.e. the shape will be [3,n,m].</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.set_motionWords_parameters">
+<code class="sig-name descname">set_motionWords_parameters</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">number_of_frames</span><span class="o">=</span><span class="default_value">16</span></em>, <em class="sig-param"><span class="n">overlaping_degree</span><span class="o">=</span><span class="default_value">0.75</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.set_motionWords_parameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.set_motionWords_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function set the parameters of computing motion words. One specifies the number of frames and the overlaping degree between motion words.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>number_of_frames</strong> (<em>int</em><em>, </em><em>optional</em>) – The default is 16. We recommend to give a number for which the squre root is an integer to guarantee a square reshaping if one plans to transform the motion words into images.</p></li>
+<li><p><strong>overlaping_degree</strong> (<em>int</em><em>, </em><em>optional</em>) – The overlaping degree between two consecutive motion words. The default is 0.75.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.timeseries_to_images">
+<code class="sig-name descname">timeseries_to_images</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">motion_word</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.timeseries_to_images"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.timeseries_to_images" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function returns a number of “word_size” images.
+Each row of the motion word is converted into an image. The parameters should be defined using self.set_imaging_parameters. The value of the images are between 0 and 1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>motion_word</strong> (<em>2D numpy array.</em>) – </p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>images</strong> – It is of shape [words_size,n,m] if all imaging methods are set to True i.e self.GAF, self.MTF,self.recurrence_plot.
+Otherwise it is of shape [n,m].
+By default the images are reshaped as squares which is guaranteed to work when the square root of motion word size is a integer.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>3D or 2D numpy array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.dataPreparation.data_preparation.training_dataset_to_images">
+<code class="sig-name descname">training_dataset_to_images</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">save_data</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/dataPreparation.html#data_preparation.training_dataset_to_images"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.dataPreparation.data_preparation.training_dataset_to_images" title="Permalink to this definition">¶</a></dt>
+<dd><p>It will save the training dataset as a dictionary –&gt; {motion_word_name : [positve,negative]}.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>save_data</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – The default is False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>output</strong> – Training datset.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="Similarity.html"
+                        title="previous chapter">Similarity Calculation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="evaluation.html"
+                        title="next chapter">Evaluation</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/dataPreparation.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="evaluation.html" title="Evaluation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Similarity.html" title="Similarity Calculation"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Data Preparation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>

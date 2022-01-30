@@ -1,0 +1,7 @@
+Deep network Architecture
+=========================
+.. automodule:: src.deepArchitecture
+   :members:
+
+
+

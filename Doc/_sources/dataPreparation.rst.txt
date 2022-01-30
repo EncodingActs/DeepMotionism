@@ -1,0 +1,4 @@
+Data Preparation
+================
+.. automodule:: src.dataPreparation
+   :members:

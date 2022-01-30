@@ -1,0 +1,380 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Retrieval Engine &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Evaluation" href="evaluation.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="evaluation.html" title="Evaluation"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Retrieval Engine</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-src.retrieval_system">
+<span id="retrieval-engine"></span><h1>Retrieval Engine<a class="headerlink" href="#module-src.retrieval_system" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt id="src.retrieval_system.retrieval_engine">
+<em class="property">class </em><code class="sig-prename descclassname">src.retrieval_system.</code><code class="sig-name descname">retrieval_engine</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model_name</span><span class="o">=</span><span class="default_value">'resnet18'</span></em>, <em class="sig-param"><span class="n">embedding_dimension</span><span class="o">=</span><span class="default_value">700</span></em>, <em class="sig-param"><span class="n">do_ts_images</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">is_inception</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">num_subsequences</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">select_high_variance_features</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">include_videos_allMoCap</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">load_oldData</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">use_multiple_context_NN</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine" title="Permalink to this definition">¶</a></dt>
+<dd><p class="rubric">Methods</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.compute_ball_tree" title="src.retrieval_system.retrieval_engine.compute_ball_tree"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_ball_tree</span></code></a>([save, distance_metric, …])</p></td>
+<td><p>Computes the ball tree and optionally save it.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.compute_cluster_predictor" title="src.retrieval_system.retrieval_engine.compute_cluster_predictor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_cluster_predictor</span></code></a>([save])</p></td>
+<td><p>Computes the clusters and assignments.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.compute_dendrogram" title="src.retrieval_system.retrieval_engine.compute_dendrogram"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_dendrogram</span></code></a>()</p></td>
+<td><p>Computes the dendrogram of the embeddings.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.compute_embeddings" title="src.retrieval_system.retrieval_engine.compute_embeddings"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_embeddings</span></code></a>()</p></td>
+<td><p>Computes the embeddings.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.compute_lsh_engine" title="src.retrieval_system.retrieval_engine.compute_lsh_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_lsh_engine</span></code></a>([top_k])</p></td>
+<td><p>Computes the lsh engine.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.compute_motion_signatures" title="src.retrieval_system.retrieval_engine.compute_motion_signatures"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_motion_signatures</span></code></a>([…])</p></td>
+<td><p>Computes motion signatures.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.load_embedding" title="src.retrieval_system.retrieval_engine.load_embedding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_embedding</span></code></a>()</p></td>
+<td><p>Loads embeddings.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.load_predictor" title="src.retrieval_system.retrieval_engine.load_predictor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_predictor</span></code></a>()</p></td>
+<td><p>Loads clusters information.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.retrieval_lsh" title="src.retrieval_system.retrieval_engine.retrieval_lsh"><code class="xref py py-obj docutils literal notranslate"><span class="pre">retrieval_lsh</span></code></a>([query_name, sequence_name, …])</p></td>
+<td><p>Lsh-based retrieval engine.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.retrieve_reference" title="src.retrieval_system.retrieval_engine.retrieve_reference"><code class="xref py py-obj docutils literal notranslate"><span class="pre">retrieve_reference</span></code></a>([query_name, …])</p></td>
+<td><p>Reference retrieval engine.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.retrieve_tree" title="src.retrieval_system.retrieval_engine.retrieve_tree"><code class="xref py py-obj docutils literal notranslate"><span class="pre">retrieve_tree</span></code></a>([query_name, sequence_name, …])</p></td>
+<td><p>Tree-based retrieval engine.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#src.retrieval_system.retrieval_engine.retrieve_windows" title="src.retrieval_system.retrieval_engine.retrieve_windows"><code class="xref py py-obj docutils literal notranslate"><span class="pre">retrieve_windows</span></code></a>([query_name, window_size])</p></td>
+<td><p>This function retrieves the windows.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.compute_ball_tree">
+<code class="sig-name descname">compute_ball_tree</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">save</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">distance_metric</span><span class="o">=</span><span class="default_value">'pyfunc'</span></em>, <em class="sig-param"><span class="n">window_size</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.compute_ball_tree"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.compute_ball_tree" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the ball tree and optionally save it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>save</strong> (<em>boolean</em><em>, </em><em>optional</em>) – The default is True.</p></li>
+<li><p><strong>distance_metric</strong> (<em>string</em><em>, </em><em>optional</em>) – We recommend the following distance metrics are ‘euclidean’, ‘minkowski’,’manhattan’, ‘cityblock’, ‘l1’, ‘seuclidean’, ‘canberra’, ‘pyfunc’. The default is ‘pyfunc’. When we use ‘pyfunc’, we can define our own function which is here the earth mover distance..</p></li>
+<li><p><strong>window_size</strong> (<em>int</em><em>, </em><em>optional</em>) – The number of motion words to consider as a window. The default is None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>list</strong> – For more info on how to perform queries on the tree visit :  <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.BallTree.html">https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.BallTree.html</a>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>[tree, signatures, all_sequences_names, windows_maping, all_windows]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.compute_cluster_predictor">
+<code class="sig-name descname">compute_cluster_predictor</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">save</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.compute_cluster_predictor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.compute_cluster_predictor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the clusters and assignments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>save</strong> (<em>boolean</em><em>, </em><em>optional</em>) – It states if the computed clusters. The default is True.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.compute_dendrogram">
+<code class="sig-name descname">compute_dendrogram</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.compute_dendrogram"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.compute_dendrogram" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the dendrogram of the embeddings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p></p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.compute_embeddings">
+<code class="sig-name descname">compute_embeddings</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.compute_embeddings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.compute_embeddings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the embeddings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p></p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.compute_lsh_engine">
+<code class="sig-name descname">compute_lsh_engine</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">top_k</span><span class="o">=</span><span class="default_value">10</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.compute_lsh_engine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.compute_lsh_engine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the lsh engine.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>top_k</strong> (<em>int</em><em>, </em><em>optional</em>) – The default is 10.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.compute_motion_signatures">
+<code class="sig-name descname">compute_motion_signatures</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">query_sequence_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sequence_decomposition</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.compute_motion_signatures"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.compute_motion_signatures" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes motion signatures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_sequence_name</strong> (<em>string</em><em>, </em><em>optional</em>) – The default is None.</p></li>
+<li><p><strong>sequence_decomposition</strong> (<em>dictionary</em><em>, </em><em>optional</em>) – It is a dictionary where the values. The default is None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>signatures</strong></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.load_embedding">
+<code class="sig-name descname">load_embedding</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.load_embedding"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.load_embedding" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads embeddings. In case one deals with new data, one should run ‘self.compute_embeddings()’ instead.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p></p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.load_predictor">
+<code class="sig-name descname">load_predictor</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.load_predictor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.load_predictor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads clusters information. In case one deals with new data, one should run ‘compute_cluster_predictor’ instead.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p></p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.retrieval_lsh">
+<code class="sig-name descname">retrieval_lsh</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">query_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sequence_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">start_frame_index</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">end_frame_index</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">top_k</span><span class="o">=</span><span class="default_value">10</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.retrieval_lsh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.retrieval_lsh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lsh-based retrieval engine.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_name</strong> (<em>string</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – The default is None.</p></li>
+<li><p><strong>sequence_name</strong> (<em>string</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – This parameter should be given if one wants to use “start_frame_index” &amp; “end_frame_index” . The default is None.</p></li>
+<li><p><strong>start_frame_index</strong> (<em>int</em><em>, </em><em>optional</em>) – Starting frame index. The default is None.</p></li>
+<li><p><strong>end_frame_index</strong> (<em>int</em><em>, </em><em>optional</em>) – Ending frame index. The default is None.</p></li>
+<li><p><strong>top_k</strong> (<em>int</em><em>, </em><em>optional</em>) – Top closest sequences to retrieve. The default is 10.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The keys of this dictionary are the retrieved sequences or subsequences names. And the values are lists of the following form [parent_sequence_name,(starting frame indice, ending frame indice)]. “parent_sequence_name” is the sequence name for which the frame indices are given.One should divide by the frame rate ‘fps’ to get location in ‘seconds’ in the parent sequence.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.retrieve_reference">
+<code class="sig-name descname">retrieve_reference</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">query_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sequence_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">start_frame_index</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">end_frame_index</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">top_k</span><span class="o">=</span><span class="default_value">10</span></em>, <em class="sig-param"><span class="n">load_emdeddings</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">load_clusters</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">windows_overlaping_degree</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.retrieve_reference"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.retrieve_reference" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reference retrieval engine.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_name</strong> (<em>string</em><em> or </em><em>None</em>) – Name of the sequence to retrieve. The default is None.</p></li>
+<li><p><strong>sequence_name</strong> (<em>string</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – This parameter should be given if one wants to use “start_frame_index” &amp; “end_frame_index” . The default is None.</p></li>
+<li><p><strong>start_frame_index</strong> (<em>int</em><em>, </em><em>optional</em>) – Starting frame index. The default is None.</p></li>
+<li><p><strong>end_frame_index</strong> (<em>int</em><em>, </em><em>optional</em>) – Ending frame index. The default is None.</p></li>
+<li><p><strong>top_k</strong> (<em>int</em><em>, </em><em>optional</em>) – Top closest sequences to retrieve. The default is 10.</p></li>
+<li><p><strong>load_emdeddings</strong> (<em>boolean</em><em>, </em><em>optional</em>) – The default is False. It should be set to ‘True’ if one has already computed the embeddings using self.compute_embeddings().</p></li>
+<li><p><strong>load_clusters</strong> (<em>boolean</em><em>, </em><em>optional</em>) – The default is False. It should be set to ‘True’ if one has already computed the clusters using self.compute_cluster_predictor().</p></li>
+<li><p><strong>windows_overlaping_degree</strong> (<em>float</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – The window overlaping degree. It should be between 0 and 1. The default is None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The keys of this dictionary are the retrieved sequences or subsequences names. And the values are lists of the following form [parent_sequence_name,(starting frame indice, ending frame indice)]. “parent_sequence_name” is the sequence name for which the frame indices are given.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.retrieve_tree">
+<code class="sig-name descname">retrieve_tree</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">query_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sequence_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">start_frame_index</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">end_frame_index</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">top_k</span><span class="o">=</span><span class="default_value">10</span></em>, <em class="sig-param"><span class="n">load_tree</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.retrieve_tree"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.retrieve_tree" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tree-based retrieval engine.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_name</strong> (<em>string</em>) – Name of the sequence to retrieve. The default is None.</p></li>
+<li><p><strong>sequence_name</strong> (<em>string</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – This parameter should be given if one wants to use “start_frame_index” &amp; “end_frame_index” . The default is None.</p></li>
+<li><p><strong>start_frame_index</strong> (<em>int</em><em>, </em><em>optional</em>) – Starting frame index. The default is None.</p></li>
+<li><p><strong>end_frame_index</strong> (<em>int</em><em>, </em><em>optional</em>) – Ending frame index. The default is None.</p></li>
+<li><p><strong>top_k</strong> (<em>int</em><em>, </em><em>optional</em>) – Top closest sequences to retrieve. The default is 10.</p></li>
+<li><p><strong>load_tree</strong> (<em>boolean</em><em>, </em><em>optional</em>) – The default is False. It should set to ‘True’ if the saved tree should be loaded. Use ‘False’ if the data has been changed or if it is new.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The keys of this dictionary are the retrieved sequences or subsequences names. And the values are lists of the following form [parent_sequence_name,(starting frame indice, ending frame indice)]. “parent_sequence_name” is the sequence name for which the frame indices are given.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.retrieval_system.retrieval_engine.retrieve_windows">
+<code class="sig-name descname">retrieve_windows</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">query_name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">window_size</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/retrieval_system.html#retrieval_engine.retrieve_windows"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.retrieval_system.retrieval_engine.retrieve_windows" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function retrieves the windows. Make sure that either query_name and window_size is defined. Both shouldn’t be ‘None’.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_name</strong> (<em>string</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – The default is None.</p></li>
+<li><p><strong>window_size</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – The default is None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>all_windows</strong> (<em>dictionary</em>)</p></li>
+<li><p><strong>windows_mapping</strong> (<em>dictionary</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="evaluation.html"
+                        title="previous chapter">Evaluation</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/retrieval_engine.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="evaluation.html" title="Evaluation"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Retrieval Engine</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>

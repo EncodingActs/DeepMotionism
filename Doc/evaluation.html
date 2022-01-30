@@ -1,0 +1,249 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Evaluation &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Retrieval Engine" href="retrieval_engine.html" />
+    <link rel="prev" title="Data Preparation" href="dataPreparation.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="retrieval_engine.html" title="Retrieval Engine"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="dataPreparation.html" title="Data Preparation"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Evaluation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-src.evaluation">
+<span id="evaluation"></span><h1>Evaluation<a class="headerlink" href="#module-src.evaluation" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="src.evaluation.cluster_dataset">
+<code class="sig-prename descclassname">src.evaluation.</code><code class="sig-name descname">cluster_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">embeddings</span></em>, <em class="sig-param"><span class="n">motion_names</span></em>, <em class="sig-param"><span class="n">num_clusters</span><span class="o">=</span><span class="default_value">200</span></em>, <em class="sig-param"><span class="n">display_silhouette_score</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/evaluation.html#cluster_dataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.evaluation.cluster_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function will compute the clusters in the datasets using kmeans algorithm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>embeddings</strong> (<em>2D numpy array</em>) – It represents all the motion words embeddings.</p></li>
+<li><p><strong>motion_names</strong> (<em>list of strings</em>) – A list of the motion words names with the same ordering as the embeddings i.e embeddings[k] is linked to motion_names[k]</p></li>
+<li><p><strong>num_clusters</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of clusters to compute. The default is 200.</p></li>
+<li><p><strong>display_silhouette_score</strong> (<em>boolean</em><em>, </em><em>optional</em>) – The default is True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>names_and_assignments</strong> (<em>dictionary</em>) – It maps all the motion words to the cluster they are assigned to.</p></li>
+<li><p><strong>size_of_clusters</strong> (<em>list</em>) – This list gives the number of motion words assigned to each cluster i.e size_of_clusters[k] give the number of assignements to the cluster k.</p></li>
+<li><p><strong>centers</strong> (<em>numpy arrays</em>) – It stores the cluster centers.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.evaluation.embedding_quality_assessment_OneVsRest">
+<code class="sig-prename descclassname">src.evaluation.</code><code class="sig-name descname">embedding_quality_assessment_OneVsRest</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">signatures_dict</span></em>, <em class="sig-param"><span class="n">path_meta_data</span><span class="o">=</span><span class="default_value">'./../data/csv/metadata/metadata_train.csv'</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/evaluation.html#embedding_quality_assessment_OneVsRest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.evaluation.embedding_quality_assessment_OneVsRest" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>This function runs a 7-fold cross validation using a OneVsRest strategy to assess the quality of the computed embeddings.</dt><dd><p>It uses sklearn OneVsRest classifier : <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html">https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html</a> .</p>
+</dd>
+<dt>NB<span class="classifier">be carefull when using the function as it assumes that the file names provided in the metadata are similar to the bvh and video file names.</span></dt><dd><p>In addition, one should have these three headers [‘kungfu_style_1’,’kungfu_style_2’,’weapon’,’master’]. In case there are many kungFu styles per videos, new columns should be created hence ‘kungfu_style_1’,’kungfu_style_2’.</p>
+</dd>
+</dl>
+<dl class="field-list">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl>
+<dt><strong>signatures_dict</strong><span class="classifier">dictionary</span></dt><dd><blockquote>
+<div><p>A dictionary mapping sequences to their signatures.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>path_meta_data<span class="classifier">string, optional</span></dt><dd><p>path to metadata of the sequences. The default is ‘./../data/csv/metadata/metadata_train.csv’.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>None.</dt><dd></dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.evaluation.embedding_quality_assessment_similarityFuncVsNN">
+<code class="sig-prename descclassname">src.evaluation.</code><code class="sig-name descname">embedding_quality_assessment_similarityFuncVsNN</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">motion_word_dataset</span></em>, <em class="sig-param"><span class="n">data_object_embedding</span></em>, <em class="sig-param"><span class="n">similarityFunc</span><span class="o">=</span><span class="default_value">['dtw', 'soft_dtw', 'gak']</span></em>, <em class="sig-param"><span class="n">plot_title</span><span class="o">=</span><span class="default_value">''</span></em>, <em class="sig-param"><span class="n">mode</span><span class="o">=</span><span class="default_value">'train'</span></em>, <em class="sig-param"><span class="n">assessment_method</span><span class="o">=</span><span class="default_value">'mean'</span></em>, <em class="sig-param"><span class="n">include_noisy_data</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/evaluation.html#embedding_quality_assessment_similarityFuncVsNN"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.evaluation.embedding_quality_assessment_similarityFuncVsNN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embedding quality assessment by comparison with a similarity function.</p>
+<p>For simplicity, we load training/testing datasets and we check how well the embeddings perform to separate positive samples from negative samples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>motion_word_dataset</strong> (<em>dictionary</em>) – It is a dictionary that maps motion words to their values.</p></li>
+<li><p><strong>data_object_embedding</strong> (<a class="reference internal" href="dataPreparation.html#src.dataPreparation.data_preparation" title="src.dataPreparation.data_preparation"><em>data_preparation</em></a>) – An instance of data_preparation that has the embeddings at ‘data_object_embedding.motion_word_dataset’.</p></li>
+<li><p><strong>similarityFunc</strong> (<em>list of strings</em><em>, </em><em>optional</em>) – The name of the similarity function to consider. The allowed values are : ‘gak’,’soft_dtw’,’dtw’. The default is [‘dtw’,’soft_dtw’,’gak’].</p></li>
+<li><p><strong>mode</strong> (<em>string</em><em>, </em><em>optional</em>) – This states wheter the embedding quality should be assessed on the “training” or “testing dataset”. The default is “train”.</p></li>
+<li><p><strong>assessment_method</strong> (<em>string</em><em>, </em><em>optional</em>) – States which assessment method should be used. It can be ‘mean’ or ‘coefvar’. ‘coefvar’ stands for ‘coefficients of variation’ that is equal to the standard deviation divided by the mean. Here we divide by ‘1 + mean ‘ to avoid having zeros as denominators.</p></li>
+<li><p><strong>include_noisy_data</strong> (<em>boolean</em><em>, </em><em>optional</em>) – It states if the noisy data should be considered for the assessment. This will impact the choice of dataset used to assess the embedding quality. The default is ‘True’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>values_emd</strong> (<em>2D numpy array</em>) – Positive and negative distances computed using the embeddings. The first column relates to the positive distances and the second column to the negative distances.</p></li>
+<li><p><strong>values_sim</strong> (<em>2D numpy array</em>) – Positive and negative distances computed using ‘similarityFunc’. The first column relates to the positive distances and the second column to the negative distances.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.evaluation.evaluation">
+<code class="sig-prename descclassname">src.evaluation.</code><code class="sig-name descname">evaluation</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model</span></em>, <em class="sig-param"><span class="n">data_object</span></em>, <em class="sig-param"><span class="n">transformer</span></em>, <em class="sig-param"><span class="n">embedding_dimension</span></em>, <em class="sig-param"><span class="n">batch_size</span><span class="o">=</span><span class="default_value">100</span></em>, <em class="sig-param"><span class="n">do_ts_images</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">is_inception</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">saving_file_ending</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/evaluation.html#evaluation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.evaluation.evaluation" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function maps the motion words to their embeddings. Hence, it computes the embeddings that it will save.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<em>pytorch neural network model</em>) – </p></li>
+<li><p><strong>data_object</strong> (<a class="reference internal" href="dataPreparation.html#src.dataPreparation.data_preparation" title="src.dataPreparation.data_preparation"><em>data_preparation</em></a>) – This is an instance of the class data_preparation.
+It should contain all the motion words so be sure to have them.You can run ‘data_object.load_motion_word_dataset(path)’</p></li>
+<li><p><strong>transformer</strong> (<em>function</em>) – This is the function that transforms the input to meet the network requirement.</p></li>
+<li><p><strong>embedding_dimension</strong> (<em>int</em>) – </p></li>
+<li><p><strong>batch_size</strong> (<em>int</em><em>, </em><em>optional</em>) – The default is 100.</p></li>
+<li><p><strong>do_ts_images</strong> (<em>boolen</em><em>, </em><em>optional</em>) – States if the motion words should be transformed into images. The default is False.</p></li>
+<li><p><strong>is_inception</strong> (<em>boolean</em><em>, </em><em>optional</em>) – States if the backbone is an inception model. The default is False.</p></li>
+<li><p><strong>saving_file_ending</strong> (<em>string</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – The embeddings will be saved at ‘./../data/embeddings’ if None. Otherwise, it will be ‘./../data/embeddings_saving_file_ending’ .</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.evaluation.motion_signatures">
+<code class="sig-prename descclassname">src.evaluation.</code><code class="sig-name descname">motion_signatures</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">data_object_embeddings</span></em>, <em class="sig-param"><span class="n">num_clusters</span><span class="o">=</span><span class="default_value">200</span></em>, <em class="sig-param"><span class="n">plot_embeddings</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">plot_signatures</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">plot_pairwise_distances</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">names_and_assignments</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">size_of_clusters</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cluster_centers</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sequence_decomposition</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/evaluation.html#motion_signatures"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.evaluation.motion_signatures" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the motion signatures of the motion sequences in the database. It can plot the embeddings and signatures if requested.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_object_embeddings</strong> (<a class="reference internal" href="dataPreparation.html#src.dataPreparation.data_preparation" title="src.dataPreparation.data_preparation"><em>data_preparation</em></a>) – This is an instance of the class data_preparation that has the embedding values stored at “data_object_embeddings.motion_word_dataset”.</p></li>
+<li><p><strong>num_clusters</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of clusters to compute. The default is 200.</p></li>
+<li><p><strong>plot_embeddings</strong> (<em>boolean</em><em>, </em><em>optional</em>) – If False, we run PCA on the embeddings and plot motion words along with the cluster center. The default is False.</p></li>
+<li><p><strong>plot_signatures</strong> (<em>boolean</em><em>, </em><em>optional</em>) – The default is False.</p></li>
+<li><p><strong>plot_pairwise_distances</strong> (<em>TYPE</em><em>, </em><em>optional</em>) – It will plot the pairwise distance between the motion signatures.The wasserstein distance or “earth mover distance” is used. The default is False.</p></li>
+<li><p><strong>names_and_assignments</strong> (<em>dictionary</em><em>, </em><em>optional</em>) – It maps all the motion words to the cluster they are assigned to. The default is None.</p></li>
+<li><p><strong>size_of_clusters</strong> (<em>list of ints</em>) – This list gives the number of motion words assigned to each cluster i.e size_of_clusters[k] give the number of assignements to the cluster k.</p></li>
+<li><p><strong>cluster_centers</strong> (<em>numpy arrays</em><em>, </em><em>optional</em>) – The default is None.</p></li>
+<li><p><strong>sequence_decomposition</strong> (<em>dictionary</em><em>, </em><em>optional</em>) – By default, “sequence_decomposition = data_object_embeddings.mapping_Of_motionWordsNames”. The default is None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>sequences_signatures</strong> – It maps each sequence to its computed signature.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="dataPreparation.html"
+                        title="previous chapter">Data Preparation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="retrieval_engine.html"
+                        title="next chapter">Retrieval Engine</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/evaluation.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="retrieval_engine.html" title="Retrieval Engine"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="dataPreparation.html" title="Data Preparation"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Evaluation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>

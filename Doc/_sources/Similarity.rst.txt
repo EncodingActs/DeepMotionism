@@ -1,0 +1,4 @@
+Similarity Calculation
+======================
+.. automodule:: src.similarity_calculation
+   :members:

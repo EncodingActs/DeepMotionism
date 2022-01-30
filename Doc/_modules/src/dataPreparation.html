@@ -1,0 +1,1042 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.dataPreparation &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="../../_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.dataPreparation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.dataPreparation</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.similarity_calculation</span>  <span class="kn">import</span> <span class="n">retrieve_top_k</span><span class="p">,</span><span class="n">similarity_soft_dtw</span><span class="p">,</span><span class="n">similarity_dtw</span><span class="p">,</span><span class="n">similarity_gak</span><span class="p">,</span><span class="n">similarity_images</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">StandardScaler</span>
+<span class="kn">from</span> <span class="nn">sklearn.decomposition</span> <span class="kn">import</span> <span class="n">PCA</span>
+<span class="kn">from</span> <span class="nn">pyts.image</span> <span class="kn">import</span> <span class="n">RecurrencePlot</span><span class="p">,</span>  <span class="n">GramianAngularField</span><span class="p">,</span> <span class="n">MarkovTransitionField</span>
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">fnmatch</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">pandas</span> <span class="kn">import</span> <span class="n">read_csv</span>
+<span class="kn">from</span> <span class="nn">re</span> <span class="kn">import</span> <span class="n">split</span>
+<span class="kn">import</span> <span class="nn">gc</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="kn">import</span> <span class="n">BallTree</span> 
+<span class="kn">import</span> <span class="nn">Levenshtein</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial.distance</span> <span class="kn">import</span> <span class="n">cdist</span>
+
+<div class="viewcode-block" id="data_preparation"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation">[docs]</a><span class="k">class</span> <span class="nc">data_preparation</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;The class data_preparation allows to gather all the tools necessary to do the following :</span>
+<span class="sd">            </span>
+<span class="sd">            - mine extracted joint rotation angles</span>
+<span class="sd">            - compute motion words</span>
+<span class="sd">            - transform motion words into images (recurrence plot, markov transational fields, gramian angular fields)</span>
+<span class="sd">            - compute training datasets with different distance metrics : soft-DTW, DTW, global alignment kernel (gak) available at self.similarity_functions</span>
+<span class="sd">        </span>
+<span class="sd">        The two most important class members are : </span>
+<span class="sd">            - self.motion_word_dataset --&gt; is a dictionary that maps each computed motion word to its value as follow {name:value}.</span>
+<span class="sd">            - self.mapping_Of_motionWordsNames --&gt; is a dictionary that maps each sequence to its motion words as follows {sequence_1:[motionword_1,motionword_2,...,motionword_n]}.The motion words have the same name as the sequence except that we add &quot;_k&quot; where k specifies its location in the sequence</span>
+<span class="sd">    </span>
+<span class="sd">        Methods</span>
+<span class="sd">        -------</span>
+<span class="sd">        </span>
+<span class="sd">        </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>  <span class="n">path_to_training_dataset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span> <span class="o">=</span> <span class="s1">&#39;train&#39;</span><span class="p">,</span><span class="n">include_noisy_data</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor. Do not forget the mode which is either &#39;train&#39; or &#39;test&#39;. In case it is mode=&#39;test&#39;,  the csv at &#39;data/csv/Test&#39; will be used. If mode=&#39;train&#39;, the csv at &#39;data/csv/Train&#39; will be used</span>
+<span class="sd">            </span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        path_to_training_dataset : string, optional</span>
+<span class="sd">            DESCRIPTION. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        path_csv_directory : string, optional</span>
+<span class="sd">            DESCRIPTION. The default is &#39;./../data/csv/Train/&#39;.</span>
+<span class="sd">            </span>
+<span class="sd">        mode : string, optional</span>
+<span class="sd">            It can be &#39;test&#39; or &#39;train&#39;. The default is &#39;train&#39;.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="c1">#--- Mode</span>
+        <span class="k">assert</span> <span class="n">mode</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;test&#39;</span><span class="p">,</span><span class="s1">&#39;train&#39;</span><span class="p">],</span> <span class="s2">&quot;The mode should be &#39;test&#39;,&#39;train&#39;.&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span> <span class="o">=</span> <span class="n">include_noisy_data</span>
+        
+        <span class="c1">#--- Paths to files to extract or  datasets</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;train&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">paths_to_csv_directory</span> <span class="o">=</span> <span class="s1">&#39;./../data/csv/Train/&#39;</span>  
+            <span class="bp">self</span><span class="o">.</span><span class="n">path_to_noisy</span> <span class="o">=</span> <span class="s1">&#39;./../data/csv/Train/noisy/&#39;</span> <span class="k">if</span> <span class="n">include_noisy_data</span> <span class="o">==</span> <span class="kc">True</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">paths_to_csv_directory</span> <span class="o">=</span> <span class="s1">&#39;./../data/csv/Test/&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">path_to_noisy</span> <span class="o">=</span> <span class="s1">&#39;./../data/csv/Test/noisy/&#39;</span> <span class="k">if</span> <span class="n">include_noisy_data</span> <span class="o">==</span> <span class="kc">True</span> <span class="k">else</span> <span class="kc">None</span>  
+            
+        <span class="c1">#---</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path_to_dataset</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path_to_motion_words</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;./../data/motion_words_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s1">_includeNoisy_</span><span class="si">{</span><span class="n">include_noisy_data</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path_to_motion_words_context</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;./../data/motionWord_context_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s1">_includeNoisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="c1">#--- Path to positive and negative examples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path_to_training_dataset</span> <span class="o">=</span> <span class="n">path_to_training_dataset</span>
+        
+        <span class="c1">#---Dictionaries to hold motion words</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mapping_of_subsequences</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        
+        <span class="c1">#---Motion words segmentation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span>  <span class="o">=</span> <span class="mi">16</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">overlaping_degree</span> <span class="o">=</span> <span class="mf">0.75</span>
+        
+        <span class="c1">#---Feature expansion and PCA</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_PCA</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">number_of_components</span> <span class="o">=</span> <span class="mi">50</span>
+        
+        <span class="c1">#--- Functions for similarity calculation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">similarity_functions</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">similarity_functions</span><span class="p">[</span><span class="s1">&#39;gak&#39;</span><span class="p">]</span><span class="o">=</span> <span class="n">similarity_gak</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">similarity_functions</span><span class="p">[</span><span class="s1">&#39;dtw&#39;</span><span class="p">]</span><span class="o">=</span> <span class="n">similarity_dtw</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">similarity_functions</span><span class="p">[</span><span class="s1">&#39;soft_dtw&#39;</span><span class="p">]</span><span class="o">=</span> <span class="n">similarity_soft_dtw</span>
+       
+    <span class="c1">#------------------------------- Setters-------------------------------------------------</span>
+<div class="viewcode-block" id="data_preparation.set_motionWords_parameters"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.set_motionWords_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">set_motionWords_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">number_of_frames</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span> <span class="n">overlaping_degree</span> <span class="o">=</span> <span class="mf">0.75</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function set the parameters of computing motion words. One specifies the number of frames and the overlaping degree between motion words.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        number_of_frames : int, optional</span>
+<span class="sd">            The default is 16. We recommend to give a number for which the squre root is an integer to guarantee a square reshaping if one plans to transform the motion words into images.</span>
+<span class="sd">            </span>
+<span class="sd">        overlaping_degree : int, optional</span>
+<span class="sd">            The overlaping degree between two consecutive motion words. The default is 0.75.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span>  <span class="o">=</span> <span class="n">number_of_frames</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">overlaping_degree</span> <span class="o">=</span> <span class="n">overlaping_degree</span></div>
+        
+
+<div class="viewcode-block" id="data_preparation.set_featureExpansion_parameters"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.set_featureExpansion_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">set_featureExpansion_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">do_PCA</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">number_of_components</span> <span class="o">=</span> <span class="mi">50</span> <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets feature expansion parameters.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        do_PCA : Boolean, optional</span>
+<span class="sd">            It says if we should do PCA on the motion word. The default is True.</span>
+<span class="sd">            </span>
+<span class="sd">        number_of_components : int, optional</span>
+<span class="sd">            The default is 50.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_PCA</span> <span class="o">=</span> <span class="n">do_PCA</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">number_of_components</span> <span class="o">=</span> <span class="n">number_of_components</span>
+        
+        <span class="k">return</span> <span class="kc">None</span></div>
+        
+<div class="viewcode-block" id="data_preparation.set_imaging_parameters"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.set_imaging_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">set_imaging_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">do_recurrenceP</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">RP_threshold</span> <span class="o">=</span> <span class="s1">&#39;point&#39;</span><span class="p">,</span>
+                               <span class="n">RP_timeDelay</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">RP_dimension</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
+                               <span class="n">do_GAF</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">GAF_method</span> <span class="o">=</span> <span class="s1">&#39;summation&#39;</span><span class="p">,</span>
+                               <span class="n">do_MTF</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                               <span class="n">square_reshape</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                               <span class="n">vertical_stacking</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                               <span class="n">horizontal_stacking</span> <span class="o">=</span> <span class="kc">False</span> <span class="p">):</span>
+        
+        <span class="sd">&quot;&quot;&quot;This method sets the timeseries imaging parameters.If more than one method is chosen you get, images concatenated along the first axis.</span>
+<span class="sd">            </span>
+<span class="sd">        Choose between : do_recurrenceP, do_GAF, do_MTF and set only one or all of them to &quot;True&quot;.</span>
+<span class="sd">        </span>
+<span class="sd">        For more information on time series imaging visit : https://pyts.readthedocs.io/en/stable/api.html#module-pyts.image</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        do_recurrenceP : Boolean, optional</span>
+<span class="sd">            States if a recurrence plot should be computed. The default is True.</span>
+<span class="sd">            </span>
+<span class="sd">        RP_threshold : string, optional</span>
+<span class="sd">            Threshold for the minimum distance. If None, the recurrence plots are not binarized.</span>
+<span class="sd">            If ‘point’, the threshold is computed such as percentage percents of the points are smaller than the threshold.</span>
+<span class="sd">            If ‘distance’, the threshold is computed as the percentage of the maximum distance. The default is &#39;point&#39;.</span>
+<span class="sd">            </span>
+<span class="sd">        RP_timeDelay : int or float, optional</span>
+<span class="sd">            Time gap between two back-to-back points of the trajectory.</span>
+<span class="sd">            If float, If float, it represents a percentage of the size of each time series and must be between 0 and 1. The default is 1.</span>
+<span class="sd">            </span>
+<span class="sd">        RP_dimension : int or float, optional</span>
+<span class="sd">            Dimension of the trajectory. If float, If float, it represents a percentage of the size of each time series and must be between 0 and 1. The default is 0.25.</span>
+<span class="sd">            </span>
+<span class="sd">        do_GAF : Boolean, optional</span>
+<span class="sd">            States if the gramian angular field should be computed. The default is False.</span>
+<span class="sd">            </span>
+<span class="sd">        GAF_method : string, optional</span>
+<span class="sd">            Type of Gramian Angular Field. ‘s’ can be used for ‘summation’ and ‘d’ for ‘difference’. The default is &#39;summation&#39;.</span>
+<span class="sd">            </span>
+<span class="sd">        do_MTF : Boolean, optional</span>
+<span class="sd">            States if the Markov transition field should be computed. The default is False.</span>
+
+<span class="sd">        NB: if do_MTF == True , do_GAF == True, do_recurrenceP == True, </span>
+<span class="sd">            we will get an RGB-like image where the resulting images from these methods have been stacked along the first channel i.e. the shape will be [3,n,m].</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1">#--Checking that self.number_of_frames is compliant with square reshaping method</span>
+        <span class="k">if</span> <span class="n">square_reshape</span> <span class="p">:</span>
+             <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span><span class="p">)</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span><span class="p">))</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">,</span><span class="s2">&quot;The number of frames should have an integer root if square_reshape is True&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recurrence_plot</span> <span class="o">=</span> <span class="n">do_recurrenceP</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">RP_threshold</span> <span class="o">=</span> <span class="n">RP_threshold</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">RP_timeDelay</span> <span class="o">=</span> <span class="n">RP_timeDelay</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">RP_dimension</span> <span class="o">=</span> <span class="n">RP_dimension</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">GAF</span> <span class="o">=</span> <span class="n">do_GAF</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">GAF_method</span> <span class="o">=</span> <span class="n">GAF_method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">MTF</span> <span class="o">=</span> <span class="n">do_MTF</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">square_reshape</span> <span class="o">=</span> <span class="n">square_reshape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertical_stacking</span> <span class="o">=</span> <span class="n">vertical_stacking</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">horizontal_stacking</span> <span class="o">=</span> <span class="n">horizontal_stacking</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_size</span> <span class="o">=</span> <span class="mi">50</span>
+        
+       
+            
+        <span class="k">return</span> <span class="kc">None</span></div>
+       
+    <span class="c1">#------------------------------------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="data_preparation.csv_files_mining"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.csv_files_mining">[docs]</a>    <span class="k">def</span> <span class="nf">csv_files_mining</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">select_high_variance_features</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">feature_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">expand_features</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function runs the feature selection on all the converted bvh files for which the csv files are provided in &#39;../data/csv/&#39;.</span>
+<span class="sd">        It writes the result to an external file that is available &quot;self.path_to_dataset&quot;.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        select_high_variance_features : Boolean or None, optional</span>
+<span class="sd">                The default is True. If it is *None* then all features are considered. no selection is done.</span>
+<span class="sd">                </span>
+<span class="sd">        feature_labels : None or array of strings, optional</span>
+<span class="sd">            The strings should be the features names to be selected. We use pandas to read the csv files so it&#39;s important to have to correct columns names. The default is None.</span>
+<span class="sd">            </span>
+<span class="sd">        expand_features : Boolean, optional</span>
+<span class="sd">            States if features should be expanded. The default is True. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="n">csv_paths</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">paths_to_csv_directory</span><span class="o">+</span><span class="n">file</span> <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">paths_to_csv_directory</span><span class="p">)</span> <span class="k">if</span> <span class="n">fnmatch</span><span class="o">.</span><span class="n">fnmatch</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;*.csv&quot;</span><span class="p">)]</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_noisy</span><span class="p">)</span> <span class="p">:</span>
+            <span class="n">csv_paths_noisy</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_noisy</span><span class="o">+</span><span class="n">file</span> <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_noisy</span><span class="p">)</span> <span class="k">if</span> <span class="n">fnmatch</span><span class="o">.</span><span class="n">fnmatch</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;*.csv&quot;</span><span class="p">)]</span>
+            <span class="n">csv_paths</span> <span class="o">=</span> <span class="n">csv_paths</span> <span class="o">+</span> <span class="n">csv_paths_noisy</span>
+            
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> CSV files mining has started !&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; We&#39;re mining the file at : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">paths_to_csv_directory</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        
+                    
+        <span class="k">if</span> <span class="n">select_high_variance_features</span> <span class="p">:</span>
+            <span class="n">labels_path</span> <span class="o">=</span> <span class="s1">&#39;./selected_features_labels_highestFrequency.txt&#39;</span>
+            <span class="n">dataset_name</span><span class="o">=</span><span class="s1">&#39;dataset&#39;</span><span class="o">+</span><span class="s1">&#39;_HighVariance&#39;</span><span class="o">+</span><span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s1">_includeNoisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">&#39;</span>
+            
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">labels_path</span> <span class="o">=</span> <span class="s1">&#39;./selected_features_labels.txt&#39;</span>
+            <span class="n">dataset_name</span><span class="o">=</span><span class="s1">&#39;dataset&#39;</span><span class="o">+</span><span class="s1">&#39;_NotHighVariance&#39;</span><span class="o">+</span><span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s1">_includeNoisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">&#39;</span>
+    
+        <span class="k">if</span> <span class="n">select_high_variance_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="c1">#--Retrieve labels</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">labels_path</span><span class="p">,</span><span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+            
+        <span class="c1">#--Create the holder for all extracted features</span>
+        <span class="n">joint_angle_values</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        
+        <span class="c1">#--Iterating through the paths </span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span><span class="n">path</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">csv_paths</span><span class="p">):</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">file_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            
+            <span class="c1">#--Extract the values</span>
+            <span class="n">loaded_data</span> <span class="o">=</span>  <span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            
+            <span class="c1">#--Selecting wanted features from the csv files</span>
+            <span class="k">if</span> <span class="n">select_high_variance_features</span> <span class="ow">is</span> <span class="kc">None</span> <span class="p">:</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="n">loaded_data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> 
+                
+            <span class="c1">#--Getting labels if available</span>
+            <span class="k">if</span> <span class="n">feature_labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="p">:</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="n">feature_labels</span>
+                
+            <span class="c1">#--Retrieve selected features</span>
+            <span class="k">if</span> <span class="n">expand_features</span> <span class="p">:</span>
+                <span class="n">joint_angle_values</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">file_name</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">featureExpansion_angles</span><span class="p">(</span><span class="n">loaded_data</span><span class="p">[</span><span class="n">labels</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())})</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">joint_angle_values</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">file_name</span> <span class="p">:</span> <span class="n">loaded_data</span><span class="p">[</span><span class="n">labels</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()})</span>
+
+        <span class="c1">#--Saving</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path_to_dataset</span> <span class="o">=</span><span class="sa">f</span><span class="s1">&#39;./../data/datasets/</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s1">&#39;</span>
+        
+        <span class="c1">#--Opening or creating the dataset</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_dataset</span><span class="p">,</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">joint_angle_values</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+            
+          
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> The data has been successfully processed and is located at : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_dataset</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        
+        <span class="k">return</span> <span class="kc">None</span></div>
+    
+    
+    
+<div class="viewcode-block" id="data_preparation.compute_motion_words"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.compute_motion_words">[docs]</a>    <span class="k">def</span> <span class="nf">compute_motion_words</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">divide_sequence</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function computes the motion words from the extracted joint-rotations.</span>
+<span class="sd">        The motion words are stored in &#39;self.motion_word_dataset&#39;.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        divide_sequence : int, optional</span>
+<span class="sd">            This will emulate having more data which can be useful for the validation stage.Each sequence will be divided in &#39;divide_sequence&#39; parts.  If divide_sequence=0, nothing is done. The default is 0.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> Computing motion words !&quot;</span><span class="p">)</span>
+               
+        <span class="c1">#-- number of frames to skip</span>
+        <span class="n">skip</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">overlaping_degree</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span><span class="p">)</span>
+        
+        <span class="c1">#-- Loading the extracted csv</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_dataset</span><span class="p">,</span><span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span> <span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        
+        <span class="c1">#--Iterating through the dataset</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="n">key</span>
+            <span class="n">motion_words_names</span> <span class="o">=</span> <span class="p">[]</span>
+            
+            <span class="n">indx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="c1">#--Computing the motion words</span>
+            <span class="k">while</span><span class="p">(</span> <span class="n">indx</span><span class="o">*</span><span class="n">skip</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span> <span class="o">&lt;=</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">word_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">value</span><span class="p">[</span><span class="n">indx</span><span class="o">*</span><span class="n">skip</span> <span class="p">:</span> <span class="n">indx</span><span class="o">*</span><span class="n">skip</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span><span class="p">])</span>
+                <span class="n">word_name</span> <span class="o">=</span> <span class="n">file_name</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">indx</span><span class="si">}</span><span class="s2">&quot;</span>
+                               
+                <span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">word_name</span> <span class="p">:</span> <span class="n">word_value</span><span class="p">})</span>
+                <span class="n">motion_words_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">word_name</span><span class="p">)</span>
+                <span class="n">indx</span> <span class="o">+=</span> <span class="mi">1</span>
+                
+            <span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">file_name</span> <span class="p">:</span> <span class="n">motion_words_names</span><span class="p">})</span>
+            
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> Number of words : &quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">motion_words_names</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot; in </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1">#---Artificially adding subsequences from data</span>
+        <span class="k">if</span> <span class="n">divide_sequence</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="p">:</span>
+            
+            <span class="n">dummy</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span><span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">subsequence_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">//</span><span class="n">divide_sequence</span> 
+                <span class="n">prev_</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">subsequences_names</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">divide_sequence</span><span class="p">):</span>
+                    
+                    <span class="n">new_key</span> <span class="o">=</span> <span class="n">key</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;_sub_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span>
+                    
+                    <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="n">divide_sequence</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+                        <span class="n">next_</span> <span class="o">=</span> <span class="n">prev_</span> <span class="o">+</span> <span class="n">subsequence_length</span>
+                    <span class="k">else</span> <span class="p">:</span>
+                        <span class="n">next_</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                    
+                    <span class="n">dummy</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">new_key</span> <span class="p">:</span> <span class="n">value</span><span class="p">[</span><span class="n">prev_</span><span class="p">:</span><span class="n">next_</span><span class="p">]})</span>
+                    <span class="n">prev_</span> <span class="o">=</span> <span class="n">next_</span>
+                    <span class="n">subsequences_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_key</span><span class="p">)</span>
+                    
+                <span class="c1">#--Subsequences mapping to original file</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mapping_of_subsequences</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">key</span><span class="p">:</span> <span class="n">subsequences_names</span><span class="p">})</span>
+                    
+            <span class="c1">#--Adding subsequences</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dummy</span><span class="p">)</span>
+                    
+        <span class="c1">#----Saving the file </span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_motion_words</span><span class="p">,</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span> <span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+        
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;./../data/motionWord_context_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s1">_includeNoisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span><span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span> <span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="p">,</span><span class="n">f</span><span class="p">)</span>
+          
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"> the motion_word_dataset is avaible at : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_motion_words</span><span class="si">}</span><span class="s1"> </span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+    
+    <span class="c1">#--Frames indices</span>
+<div class="viewcode-block" id="data_preparation.get_frames_indices"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.get_frames_indices">[docs]</a>    <span class="k">def</span> <span class="nf">get_frames_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">list_of_motion_words</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;It will return the indices of the first and last frames given a list of consecutive motion words.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        list_of_motion_words : list of strings</span>
+<span class="sd">            The motion words should be reference by their name and not their values.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple</span>
+<span class="sd">            It returns a tuple of length 2. </span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1">#--</span>
+        <span class="n">first_motion_word</span> <span class="o">=</span> <span class="n">list_of_motion_words</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">last_motion_word</span> <span class="o">=</span> <span class="n">list_of_motion_words</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="c1">#- start_index = 1 + motionWord_index*(1-overlaping degree)*number_of_frames</span>
+        <span class="n">starting_index</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span><span class="n">first_motion_word</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">overlaping_degree</span><span class="p">)</span>
+        
+        <span class="c1">#- ending_index = number_of_frames + motionWord_index*(1-overlaping degree)*number_of_frames</span>
+        <span class="n">ending_index</span><span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span><span class="n">last_motion_word</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">overlaping_degree</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">starting_index</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">ending_index</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="data_preparation.add_subsequence"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.add_subsequence">[docs]</a>    <span class="k">def</span> <span class="nf">add_subsequence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">sequence_name</span><span class="p">,</span><span class="n">starting_frameIndex</span><span class="p">,</span><span class="n">ending_frameIndex</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a new subsequence from  starting and ending frame indices.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sequence_name : string</span>
+<span class="sd">            It is the name of the sequence.</span>
+<span class="sd">            </span>
+<span class="sd">        starting_frameIndex : int</span>
+<span class="sd">            Starting frame index. It should be at least 1.</span>
+<span class="sd">            </span>
+<span class="sd">        ending_frameIndex : int</span>
+<span class="sd">            Ending frame index. If greater than the actual max frame index, it will take the last frame.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        query_name : string</span>
+<span class="sd">            The name of the created subsequence to query.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1">#--Check that it&#39;s not empty</span>
+        <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mapping_of_subsequences</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">sequence_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping_of_subsequences</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="s2">&quot;Sequence_name is not correct ! Make sure that it&#39;s not a subsequence of sequence.&quot;</span>
+        
+        <span class="k">assert</span> <span class="n">starting_frameIndex</span> <span class="o">&lt;</span> <span class="n">ending_frameIndex</span><span class="p">,</span> <span class="s2">&quot;Starting frame index can&#39;t be superior to ending frame index&quot;</span>
+        <span class="k">assert</span> <span class="n">starting_frameIndex</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Starting frame index can&#39;t be negative.&quot;</span>
+        
+        <span class="c1">#--Motion words indexes</span>
+        <span class="n">starting_motion_word_index</span> <span class="o">=</span> <span class="p">(</span><span class="n">starting_frameIndex</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="p">((</span><span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">overlaping_degree</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span><span class="p">)</span>
+        <span class="n">starting_motion_word_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">starting_motion_word_index</span><span class="p">))</span>
+        
+        <span class="n">ending_motion_word_index</span> <span class="o">=</span> <span class="p">(</span><span class="n">ending_frameIndex</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span><span class="p">)</span><span class="o">/</span><span class="p">((</span><span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">overlaping_degree</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_frames</span><span class="p">)</span>
+        <span class="n">ending_motion_word_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">ending_motion_word_index</span><span class="p">))</span>
+        
+        <span class="c1">#---Getting the subsequence</span>
+        <span class="n">num_motion_words</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="p">[</span><span class="n">sequence_name</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">ending_motion_word_index</span> <span class="o">&gt;</span> <span class="n">num_motion_words</span> <span class="p">:</span> 
+            <span class="n">ending_motion_word_index</span> <span class="o">=</span>  <span class="n">num_motion_words</span> <span class="o">-</span> <span class="mi">1</span>
+            
+        <span class="c1">#--Updating the dictionary</span>
+        <span class="n">query_name</span> <span class="o">=</span> <span class="n">sequence_name</span><span class="o">+</span><span class="sa">f</span><span class="s2">&quot;_queryFrames_</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">starting_frameIndex</span><span class="p">)</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">ending_frameIndex</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">motion_words_in_query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="p">[</span><span class="n">sequence_name</span><span class="p">][</span><span class="n">starting_motion_word_index</span><span class="p">:</span><span class="n">ending_motion_word_index</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="p">[</span><span class="n">query_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">motion_words_in_query</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">query_name</span></div>
+    
+    <span class="c1">#--------------------------------Loading methods----------------------------------------------</span>
+<div class="viewcode-block" id="data_preparation.load_motion_words_context"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.load_motion_words_context">[docs]</a>    <span class="k">def</span> <span class="nf">load_motion_words_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function loads the motion word context which is a dictionary that records all the motion words extracted from a sequence.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        path : string or None, optional</span>
+<span class="sd">            By default the path used if located at self.path_to_motion_words_context. If path is not None then it will be used.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">path_to_motion_words_context</span>
+            
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span> <span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+                
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"> The motion words context has been loaded to self.mapping_Of_motionWordsNames</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">else</span> <span class="p">:</span> 
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s1"> : does not exist.&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+    
+    
+<div class="viewcode-block" id="data_preparation.load_motion_word_dataset"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.load_motion_word_dataset">[docs]</a>    <span class="k">def</span> <span class="nf">load_motion_word_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">path</span><span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function will load the motion word dataset located at self.path_to_motion_words</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        path : string, optional</span>
+<span class="sd">            The default is None.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">path</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_motion_words</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_motion_words</span><span class="p">,</span><span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span> <span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"> The motion words dataset has been loaded to self.motion_word_dataset</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="data_preparation.load_training_dataset"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.load_training_dataset">[docs]</a>    <span class="k">def</span> <span class="nf">load_training_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function loads the training dataset located at self.path_to_training_dataset.One defines  &#39;path_to_training_dataset&#39; when creating an instance of the class or by doing  &#39;data_object.path_to_training_dataset = your_PATH&#39;.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        path : string, optional</span>
+<span class="sd">            Path to training dataset can also be given directly here to be loaded. The default is None.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        data : TYPE</span>
+<span class="sd">            DESCRIPTION.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="c1">#--Loading data</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_training_dataset</span><span class="p">,</span><span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span> <span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+                
+        <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_training_dataset</span><span class="p">,</span><span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span> <span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="k">else</span> <span class="p">:</span> 
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The given path doesn&#39;t exist.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        
+        <span class="k">return</span> <span class="n">data</span></div>
+    
+<div class="viewcode-block" id="data_preparation.merge_training_data"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.merge_training_data">[docs]</a>    <span class="k">def</span> <span class="nf">merge_training_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">paths</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Merge training datasets</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        paths : list of strings</span>
+<span class="sd">            paths to training datasets.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        output : dictionary</span>
+<span class="sd">            merged training datasets.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        
+        <span class="k">for</span> <span class="n">indx</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">paths</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">path_to_training_dataset</span> <span class="o">=</span> <span class="n">path</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_training_dataset</span><span class="p">()</span>
+            
+            <span class="k">if</span> <span class="n">indx</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">:</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">else</span> <span class="p">:</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">value</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">positive</span><span class="p">,</span> <span class="n">negative</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                    
+                    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">output</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                        <span class="n">values_old</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                        <span class="n">output</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">positive</span><span class="o">+</span><span class="n">values_old</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">negative</span><span class="o">+</span><span class="n">values_old</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+                        
+                    <span class="k">else</span> <span class="p">:</span>
+                        <span class="n">output</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span><span class="p">[</span><span class="n">positive</span><span class="p">,</span><span class="n">negative</span><span class="p">]</span>
+        
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;./../data/training_datasets_noisy_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span><span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">output</span><span class="p">,</span><span class="n">file</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span></div>
+    <span class="c1">#-------------------------------------------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="data_preparation.featureExpansion_angles"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.featureExpansion_angles">[docs]</a>    <span class="k">def</span> <span class="nf">featureExpansion_angles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">input_motion_word</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function computes feature augmentation by adding velocity and acceleration across frames.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            input_motion_word : 2D numpy array </span>
+<span class="sd">                Input motion_word of size [word_zise,num_features].</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            augmented_motion_word : 2D numpy array</span>
+<span class="sd">    </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="c1">#---Copying the input</span>
+        <span class="n">sample</span> <span class="o">=</span> <span class="n">input_motion_word</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+      
+        <span class="c1">#---Standardization</span>
+        <span class="n">sample</span> <span class="o">=</span> <span class="n">StandardScaler</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+        
+        <span class="c1">#--- Feature expansion</span>
+        <span class="n">sample_velocity</span> <span class="o">=</span>  <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">sample</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1">#np.zeros_like(sample)</span>
+        <span class="n">sample_acceleration</span> <span class="o">=</span>  <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">sample_velocity</span><span class="p">,</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">0</span> <span class="p">)</span>  <span class="c1">#np.zeros_like(sample)</span>
+        
+        <span class="c1">#--horizontal stacking the acceleration and velocites --&gt; it gives shape=(n,m)</span>
+        <span class="n">augmented_motion_word</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">sample</span><span class="p">,</span> <span class="n">sample_velocity</span><span class="p">,</span><span class="n">sample_acceleration</span><span class="p">])</span>
+        
+        <span class="c1">#-- Doing dimensionality reduction if requested</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">do_PCA</span> <span class="p">:</span>
+            <span class="n">augmented_motion_word</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensionality_reduction</span><span class="p">(</span><span class="n">augmented_motion_word</span><span class="p">)</span>
+        
+        <span class="nb">print</span><span class="p">(</span><span class="n">augmented_motion_word</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">augmented_motion_word</span></div>
+    
+    
+    
+<div class="viewcode-block" id="data_preparation.dimensionality_reduction"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.dimensionality_reduction">[docs]</a>    <span class="k">def</span> <span class="nf">dimensionality_reduction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">augmented_motion_word</span><span class="p">):</span>
+        
+        <span class="sd">&quot;&quot;&quot;This function computes the dimensionality reduction on the input. The parameters are defined in &#39;set_featureExpansion_parameters&#39;</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            augmented_motion_word : 2D numpy array</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            output : 2D numpy array</span>
+<span class="sd">    </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="n">pca</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_components</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">pca</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">augmented_motion_word</span><span class="p">)</span>
+            
+        
+        <span class="k">return</span> <span class="n">output</span></div>
+    
+    
+<div class="viewcode-block" id="data_preparation.timeseries_to_images"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.timeseries_to_images">[docs]</a>    <span class="k">def</span> <span class="nf">timeseries_to_images</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">motion_word</span><span class="p">):</span>
+        
+        <span class="sd">&quot;&quot;&quot;This function returns a number of &quot;word_size&quot; images.</span>
+<span class="sd">        Each row of the motion word is converted into an image. The parameters should be defined using self.set_imaging_parameters. The value of the images are between 0 and 1.</span>
+<span class="sd">        </span>
+<span class="sd">                </span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            motion_word : 2D numpy array.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            images : 3D or 2D numpy array</span>
+<span class="sd">                It is of shape [words_size,n,m] if all imaging methods are set to True i.e self.GAF, self.MTF,self.recurrence_plot.</span>
+<span class="sd">                Otherwise it is of shape [n,m]. </span>
+<span class="sd">                By default the images are reshaped as squares which is guaranteed to work when the square root of motion word size is a integer.</span>
+<span class="sd">                </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="k">assert</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">GAF</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">MTF</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">recurrence_plot</span><span class="p">]</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">,</span> <span class="s2">&quot; There should be at least one method of imaging selected&quot;</span>
+        
+        <span class="c1">#-----------------------------------</span>
+        <span class="k">if</span><span class="p">(</span><span class="nb">all</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">MTF</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">GAF</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">recurrence_plot</span><span class="p">])):</span>
+            <span class="n">transfo_rp</span> <span class="o">=</span> <span class="n">RecurrencePlot</span><span class="p">(</span><span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RP_threshold</span><span class="p">,</span>
+                                        <span class="n">dimension</span><span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RP_dimension</span><span class="p">,</span>
+                                        <span class="n">time_delay</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RP_timeDelay</span><span class="p">)</span>
+
+            <span class="n">image_3</span> <span class="o">=</span> <span class="n">transfo_rp</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">motion_word</span><span class="p">)</span>
+            
+            <span class="c1">#--Chaning image size so that they all have the same size</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">image_size</span> <span class="o">=</span> <span class="n">image_3</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            
+            <span class="c1">#--Doing other transforms           </span>
+            <span class="n">transfo_gaf</span> <span class="o">=</span> <span class="n">GramianAngularField</span><span class="p">(</span> <span class="n">method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">GAF_method</span><span class="p">,</span><span class="n">image_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image_size</span><span class="p">)</span>
+            <span class="n">transfo_mtf</span> <span class="o">=</span> <span class="n">MarkovTransitionField</span><span class="p">(</span><span class="n">image_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image_size</span><span class="p">,</span><span class="n">strategy</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">)</span>
+            <span class="n">image_1</span> <span class="o">=</span> <span class="n">transfo_gaf</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">motion_word</span><span class="p">)</span>
+            <span class="n">image_2</span> <span class="o">=</span> <span class="n">transfo_mtf</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">motion_word</span><span class="p">)</span>
+            
+            <span class="c1">#--Stacking the images to get an RGB-like</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">image_1</span><span class="p">,</span><span class="n">image_2</span><span class="p">,</span><span class="n">image_3</span><span class="p">]</span> <span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            
+            <span class="c1">#--Reshaping as square.</span>
+            <span class="n">_</span><span class="p">,</span><span class="n">numb_images</span><span class="p">,</span> <span class="n">dimension1</span><span class="p">,</span> <span class="n">dimension2</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">shape</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">numb_images</span><span class="o">*</span><span class="n">dimension1</span><span class="o">*</span><span class="n">dimension2</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">size</span><span class="p">,</span><span class="n">size</span><span class="p">))</span>
+            
+            <span class="c1">#--Scaling the image along the axis=0</span>
+            <span class="n">max_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">images</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">min_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">images</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="p">(</span><span class="n">images</span> <span class="o">-</span> <span class="n">min_</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">max_</span> <span class="o">-</span> <span class="n">min_</span><span class="p">)</span>
+            
+            <span class="k">return</span> <span class="n">images</span>
+
+        <span class="c1">#--------------Doing other types of imaging -----------------------</span>
+        
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">recurrence_plot</span> <span class="o">==</span> <span class="kc">True</span> <span class="p">:</span>
+            <span class="n">transformer</span> <span class="o">=</span> <span class="n">RecurrencePlot</span><span class="p">(</span><span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RP_threshold</span> <span class="p">,</span>
+                                            <span class="n">dimension</span><span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RP_dimension</span><span class="p">,</span>
+                                            <span class="n">time_delay</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RP_timeDelay</span><span class="p">)</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">transformer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">motion_word</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">GAF</span> <span class="o">==</span> <span class="kc">True</span> <span class="p">:</span>
+            <span class="n">transformer</span> <span class="o">=</span> <span class="n">GramianAngularField</span><span class="p">(</span> <span class="n">method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">GAF_method</span><span class="p">,</span><span class="n">image_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image_size</span><span class="p">)</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">transformer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">motion_word</span><span class="p">)</span>
+        
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">MTF</span> <span class="o">==</span> <span class="kc">True</span> <span class="p">:</span>
+            
+            <span class="n">transformer</span> <span class="o">=</span> <span class="n">MarkovTransitionField</span><span class="p">(</span><span class="n">image_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image_size</span><span class="p">)</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">transformer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">motion_word</span><span class="p">)</span>
+        
+        <span class="c1">#----------------------------------------------------------------------</span>
+        <span class="n">numb_images</span><span class="p">,</span> <span class="n">dimension1</span><span class="p">,</span> <span class="n">dimension2</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">shape</span>
+        
+        <span class="k">if</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vertical_stacking</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">horizontal_stacking</span> <span class="p">):</span>
+            <span class="n">all_images</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">numb_images</span><span class="p">):</span>
+                <span class="n">all_images</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">images</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">vertical_stacking</span> <span class="p">:</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">all_images</span><span class="p">)</span>
+        
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">horizontal_stacking</span> <span class="p">:</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">all_images</span><span class="p">)</span>
+        
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">square_reshape</span> <span class="p">:</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">numb_images</span><span class="o">*</span><span class="n">dimension1</span><span class="o">*</span><span class="n">dimension2</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="mi">2</span>
+            <span class="k">return</span> <span class="n">images</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">size</span><span class="p">))</span>
+        
+        <span class="c1">#--Scaling</span>
+        <span class="n">max_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+        <span class="n">min_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+        <span class="n">images</span> <span class="o">=</span> <span class="p">(</span><span class="n">images</span> <span class="o">-</span> <span class="n">min_</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">max_</span> <span class="o">-</span> <span class="n">min_</span><span class="p">)</span>
+        
+        
+        <span class="k">return</span> <span class="n">images</span></div>
+    
+    
+<div class="viewcode-block" id="data_preparation.get_positive_and_negative"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.get_positive_and_negative">[docs]</a>    <span class="k">def</span> <span class="nf">get_positive_and_negative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">anchor_name</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span><span class="n">similarity_function</span><span class="p">,</span><span class="n">context</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">use_images</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function computes the positive and negative examples given an anchor motion word. It is to be reminded that dynamic timpe wrapping is used to get the positive and negative examples. The negative examples are the hard negatives.</span>
+<span class="sd">            </span>
+<span class="sd">            PS: Ensure that the motion words haven&#39;t been transformed into images before running this function.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        anchor_name : string</span>
+<span class="sd">            The name of the motion word for which we want to get the positive and negative examples.</span>
+<span class="sd">            </span>
+<span class="sd">        k : int</span>
+<span class="sd">            k is the number of closest or farest motion words to retrieve.</span>
+<span class="sd">            </span>
+<span class="sd">        similarity_function : function </span>
+<span class="sd">        {similarity_soft_dtw,similarity_dtw,similarity_gak}</span>
+<span class="sd">      </span>
+<span class="sd">        use_images : boolean, optional</span>
+<span class="sd">            States if the image based method should be used. The default is &#39;False&#39;.</span>
+<span class="sd">            </span>
+<span class="sd">        context : list of string or None</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        positive_names : list of strings</span>
+<span class="sd">            The list has a length of k.</span>
+<span class="sd">        negative_names : list of strings</span>
+<span class="sd">            The list has a length of k.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="c1">#-- Retrieve the context of the motion word</span>
+        <span class="k">if</span> <span class="n">context</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">context</span>    
+        <span class="k">else</span> <span class="p">:</span>
+            <span class="n">parent_name</span> <span class="o">=</span> <span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\B_rot&quot;</span><span class="p">,</span><span class="n">anchor_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="s2">&quot;_rot&quot;</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="p">[</span><span class="n">parent_name</span><span class="p">]</span>
+        
+
+        <span class="n">dataset</span> <span class="o">=</span> <span class="p">{</span><span class="n">context</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">context</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">context</span><span class="p">))}</span>
+        <span class="c1">#-- Retrieve the positive and negative</span>
+        <span class="n">positive_values</span><span class="p">,</span> <span class="n">positive_names</span><span class="p">,</span> <span class="n">negative_values</span><span class="p">,</span> <span class="n">negative_names</span> <span class="o">=</span> <span class="n">retrieve_top_k</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">],</span>
+                                                <span class="n">anchor_name</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">similarity_function</span><span class="p">)</span>
+       
+        <span class="c1">#--- Deleting the retrieved values for positive and negative samples</span>
+        <span class="k">del</span> <span class="n">positive_values</span>
+        <span class="k">del</span> <span class="n">negative_values</span>
+        <span class="c1">#---</span>
+
+        <span class="k">return</span> <span class="n">positive_names</span><span class="p">,</span> <span class="n">negative_names</span></div>
+
+    
+
+<div class="viewcode-block" id="data_preparation.compute_training_dataset"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.compute_training_dataset">[docs]</a>    <span class="k">def</span> <span class="nf">compute_training_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">similarity_function</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="mi">5</span> <span class="p">,</span> <span class="n">use_multiple_contexts</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">num_contexts</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">use_images</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function computes the training dataset.</span>
+<span class="sd">            </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        similarity_function : the similarity function to use</span>
+<span class="sd">        </span>
+<span class="sd">        k : int</span>
+<span class="sd">            k is the number of closest or farest motion words to retrieve.</span>
+<span class="sd">        </span>
+<span class="sd">        use_images : boolean, optional</span>
+<span class="sd">            States if the image based method should be used. The default is &#39;False&#39;.</span>
+<span class="sd">        </span>
+<span class="sd">        use_multiple_contexts : boolean, optional</span>
+<span class="sd">            This states if multiple contexts should be used instead of one. &#39;Multiple contexts&#39; means that for each motion words we will query through the motion words of 3 motion sequences that have similar names        </span>
+<span class="sd">        </span>
+<span class="sd">        num_contexts : int, optional</span>
+<span class="sd">            Gives the number of contexts to use.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="c1">#--We build a BallTree to query faster</span>
+        <span class="k">if</span> <span class="n">use_multiple_contexts</span> <span class="p">:</span>
+            <span class="n">all_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="n">all_sequences</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">all_keys</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="nb">str</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+                
+            <span class="c1">#--Distance is computed using the levenshtein distance for strings</span>
+            <span class="n">distance_matrix</span> <span class="o">=</span> <span class="n">cdist</span><span class="p">(</span><span class="n">all_sequences</span><span class="p">,</span> <span class="n">all_sequences</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">Levenshtein</span><span class="o">.</span><span class="n">distance</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="n">tree</span> <span class="o">=</span> <span class="n">BallTree</span><span class="p">(</span><span class="n">distance_matrix</span><span class="p">,</span> <span class="n">leaf_size</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">metric</span> <span class="o">=</span> <span class="s1">&#39;l1&#39;</span><span class="p">)</span>
+            
+        
+        
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        
+        <span class="n">output</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        
+        <span class="c1">#--In case we use images</span>
+        <span class="k">if</span> <span class="n">use_images</span><span class="p">:</span>
+            <span class="n">similarity_function</span> <span class="o">=</span> <span class="n">similarity_images</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">all_motion_word_to_images</span><span class="p">()</span>
+            
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> The positive-negative dataset computation has started :&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path_to_training_dataset</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;./../data/datasets/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="o">+</span><span class="s1">&#39;ing&#39;</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="o">+</span><span class="s1">&#39;ing_dataset_&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;_Noisy_&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">include_noisy</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="n">similarity_function</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">num_motion_words</span> <span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        
+        <span class="c1">#--Iterating through the motion word dataset</span>
+        <span class="k">for</span> <span class="n">indx</span><span class="p">,</span> <span class="n">anchor_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">keys</span><span class="p">())):</span>
+            
+            <span class="c1">#--Fetch context if necessary</span>
+            <span class="k">if</span> <span class="n">use_multiple_contexts</span> <span class="p">:</span>
+                <span class="n">context</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">parent_name</span> <span class="o">=</span> <span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\B_rot&quot;</span><span class="p">,</span><span class="n">anchor_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="s2">&quot;_rot&quot;</span>
+                <span class="n">query</span> <span class="o">=</span> <span class="n">distance_matrix</span><span class="p">[</span><span class="n">all_keys</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">parent_name</span><span class="p">)]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+                <span class="n">dist</span><span class="p">,</span> <span class="n">inds</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">num_contexts</span><span class="p">)</span>
+                <span class="c1">#--Feth contexts</span>
+                <span class="k">for</span> <span class="n">context_name</span> <span class="ow">in</span> <span class="p">[</span><span class="n">all_keys</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">inds</span><span class="o">.</span><span class="n">flatten</span><span class="p">()]:</span>
+                    <span class="n">context</span> <span class="o">=</span> <span class="n">context</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping_Of_motionWordsNames</span><span class="p">[</span><span class="n">parent_name</span><span class="p">]</span>
+            
+            <span class="c1">#--Fetching the positive and negative examples</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">anchor_name</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_positive_and_negative</span><span class="p">(</span><span class="n">anchor_name</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">similarity_function</span><span class="p">,</span>
+                                                                        <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+                                                                        <span class="n">use_images</span><span class="o">=</span><span class="n">use_images</span><span class="p">)})</span>
+            
+            <span class="k">if</span> <span class="n">indx</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">:</span>
+                <span class="n">progress</span> <span class="o">=</span> <span class="mi">100</span><span class="o">*</span><span class="p">(</span><span class="n">indx</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">num_motion_words</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The computation is at : </span><span class="si">{</span><span class="n">progress</span><span class="si">:</span><span class="s2">.2</span><span class="si">}</span><span class="s2">%.&quot;</span><span class="p">)</span>
+        
+        <span class="c1">#--Saving the training dataset    </span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_training_dataset</span><span class="p">,</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span> <span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">output</span><span class="p">,</span><span class="n">file</span><span class="p">)</span>
+            
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The computation has finished after </span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span><span class="si">}</span><span class="s2"> seconds! The file is available at : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_training_dataset</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="data_preparation.all_motion_word_to_images"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.all_motion_word_to_images">[docs]</a>    <span class="k">def</span> <span class="nf">all_motion_word_to_images</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function will transform all motion words into images depending on the imaging method(s) selected.The motion words will be stored in self.motion_word_dataset.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1">#---Transforming the motion words dataset into images</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">)</span>
+        
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Transforming all motion words into images.---&gt;&#39;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeseries_to_images</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+            <span class="k">if</span>  <span class="n">count</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The process is at : </span><span class="si">{</span><span class="mi">100</span><span class="o">*</span><span class="n">count</span><span class="o">/</span><span class="n">length</span><span class="si">:</span><span class="s2">0.2f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+            <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">End of dataset conversion into images.&#39;</span><span class="p">)</span>
+        
+        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+            
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="data_preparation.training_dataset_to_images"><a class="viewcode-back" href="../../dataPreparation.html#src.dataPreparation.data_preparation.training_dataset_to_images">[docs]</a>    <span class="k">def</span> <span class="nf">training_dataset_to_images</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">save_data</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;It will save the training dataset as a dictionary --&gt; {motion_word_name : [positve,negative]}.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        save_data : Boolean, optional</span>
+<span class="sd">            The default is False.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        output : dictionary</span>
+<span class="sd">            Training datset.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        
+        <span class="n">output</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_training_dataset</span><span class="p">()</span>
+        
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span><span class="s1">&#39;Transforming all the motion words into images&#39;</span><span class="p">,</span><span class="s1">&#39;-&#39;</span><span class="o">*</span><span class="mi">20</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">all_motion_word_to_images</span><span class="p">()</span>
+
+        <span class="c1">#--Iterating through the dataset and transforming</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span><span class="s1">&#39;Transforming training dataset to images&#39;</span><span class="p">,</span><span class="s1">&#39;-&#39;</span><span class="o">*</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">num_files</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">anchor_name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">positive_images</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">negative_images</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">anchor_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">]</span>
+
+            <span class="k">if</span><span class="p">(</span><span class="n">count</span> <span class="o">%</span> <span class="mi">50</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The process is at : </span><span class="si">{</span><span class="mi">100</span><span class="o">*</span><span class="n">count</span><span class="o">/</span><span class="n">num_files</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+                <span class="n">positive_images</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]])</span>
+                <span class="n">negative_images</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]])</span>
+            
+            <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+            
+            
+            <span class="c1">#--Updating the output dictionary</span>
+            <span class="n">positives</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">positive_images</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">negatives</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">negative_images</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">anchor_name</span><span class="p">:[</span><span class="n">anchor_value</span><span class="p">,</span><span class="n">positives</span><span class="p">,</span><span class="n">negatives</span><span class="p">]})</span>
+            
+                        
+        <span class="c1">#--Saving the data if needed</span>
+        <span class="k">if</span> <span class="n">save_data</span><span class="p">:</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_to_training_dataset</span><span class="p">)</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">file_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            
+            <span class="k">if</span> <span class="nb">all</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">MTF</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">GAF</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">recurrence_plot</span><span class="p">]):</span>
+                <span class="n">file_name</span> <span class="o">=</span> <span class="n">file_name</span> <span class="o">+</span> <span class="s2">&quot;_3Channel&quot;</span> 
+                
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">file_name</span> <span class="o">=</span> <span class="n">file_name</span> <span class="o">+</span> <span class="s2">&quot;_1Channel&quot;</span>
+                
+            <span class="n">file_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;./../data/datasets/training/ts_images/</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s1">&#39;</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span><span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+                
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;The training time series images have been saved to </span><span class="si">{</span><span class="n">file_path</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+            
+            
+        <span class="k">return</span> <span class="n">output</span></div></div>
+        
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.dataPreparation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>

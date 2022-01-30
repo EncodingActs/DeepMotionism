@@ -1,0 +1,582 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.deepArchitecture &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="../../_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.deepArchitecture</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.deepArchitecture</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.optim</span> <span class="k">as</span> <span class="nn">optim</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">torchvision</span> <span class="kn">import</span> <span class="n">models</span><span class="p">,</span> <span class="n">transforms</span>
+<span class="kn">import</span> <span class="nn">gc</span>
+
+<div class="viewcode-block" id="transform_data"><a class="viewcode-back" href="../../deepArchitecture.html#src.deepArchitecture.transform_data">[docs]</a><span class="k">def</span> <span class="nf">transform_data</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span><span class="n">is_ts_images</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function will transform the input data to meet the requirements of the neural network. It performs : normalization, random erasing , random resize cropping.The normalization uses hardcoded values given at https://pytorch.org/tutorials/beginner/finetuning_torchvision_models_tutorial.html .</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_size : int</span>
+<span class="sd">        The desired input size of the network. The value to be included will be given by the function &#39;initialize_model&#39;.</span>
+<span class="sd">        </span>
+<span class="sd">    is_ts_images : boolean, optional</span>
+<span class="sd">        This states whether the data to be transformed consists of images or they have 3 channels. The default is False.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    transformer : function</span>
+<span class="sd">        This function will transform the data to fit the network requirement.</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">is_ts_images</span> <span class="p">:</span>
+        <span class="n">transformer</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">(</span> <span class="p">[</span><span class="n">transforms</span><span class="o">.</span><span class="n">RandomResizedCrop</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="n">ratio</span><span class="o">=</span><span class="p">(</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">1.33</span><span class="p">)),</span>
+                                           <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">([</span><span class="mf">0.485</span><span class="p">,</span> <span class="mf">0.456</span><span class="p">,</span> <span class="mf">0.406</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.229</span><span class="p">,</span> <span class="mf">0.224</span><span class="p">,</span> <span class="mf">0.225</span><span class="p">]),</span>
+                                           <span class="n">transforms</span><span class="o">.</span><span class="n">RandomErasing</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">transformer</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">(</span> <span class="p">[</span><span class="n">transforms</span><span class="o">.</span><span class="n">RandomCrop</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="n">pad_if_needed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">padding_mode</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">),</span>
+                     <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">([</span><span class="mf">0.485</span><span class="p">,</span> <span class="mf">0.456</span><span class="p">,</span> <span class="mf">0.406</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.229</span><span class="p">,</span> <span class="mf">0.224</span><span class="p">,</span> <span class="mf">0.225</span><span class="p">]),</span>
+                     <span class="n">transforms</span><span class="o">.</span><span class="n">RandomErasing</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)])</span>
+        
+    <span class="k">return</span> <span class="n">transformer</span> </div>
+       
+
+<div class="viewcode-block" id="set_parameter_requires_grad"><a class="viewcode-back" href="../../deepArchitecture.html#src.deepArchitecture.set_parameter_requires_grad">[docs]</a><span class="k">def</span> <span class="nf">set_parameter_requires_grad</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">feature_extracting</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function will freeze the parameters of model if feature_extracting == True.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    model : pytorch neural network object</span>
+<span class="sd">        </span>
+<span class="sd">    feature_extracting : Boolean</span>
+<span class="sd">        This should be &#39;True&#39; if we just want to train the last fully connected layer.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">feature_extracting</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span></div>
+            
+
+<div class="viewcode-block" id="initialize_model"><a class="viewcode-back" href="../../deepArchitecture.html#src.deepArchitecture.initialize_model">[docs]</a><span class="k">def</span> <span class="nf">initialize_model</span><span class="p">(</span><span class="n">model_name</span><span class="o">=</span><span class="s1">&#39;resnet18&#39;</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">feature_extract</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_pretrained</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    model_name : string, optional</span>
+<span class="sd">        It can be &quot;resnet18&quot;,&quot;resnext50&quot; or &quot;inceptionV3&quot;. The default is &#39;resnet18&#39;.</span>
+<span class="sd">        </span>
+<span class="sd">    num_classes : int, optional</span>
+<span class="sd">        It represents the desired output embedding dimension. The default is 1000.</span>
+<span class="sd">        </span>
+<span class="sd">    feature_extract : Boolean, optional</span>
+<span class="sd">        Tells if we will only be training on the last fully connected layer or not. The default is True.</span>
+<span class="sd">        </span>
+<span class="sd">    use_pretrained : Boolean, optional</span>
+<span class="sd">        If True, a pretrained model will be loaded for transfer learning purposes. The default is True.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    model_ft : torchvision neural network</span>
+<span class="sd">        </span>
+<span class="sd">    input_size : int</span>
+<span class="sd">        The adequate input size for the desired network. The networks take as inputs of shape (3,input_size,input_size).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># variables a</span>
+    <span class="n">model_ft</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">input_size</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">model_name</span> <span class="o">==</span> <span class="s2">&quot;resnet18&quot;</span><span class="p">:</span>
+        <span class="c1">#---Resnet18</span>
+        <span class="n">model_ft</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">resnet18</span><span class="p">(</span><span class="n">pretrained</span><span class="o">=</span><span class="n">use_pretrained</span><span class="p">)</span>
+        <span class="n">set_parameter_requires_grad</span><span class="p">(</span><span class="n">model_ft</span><span class="p">,</span> <span class="n">feature_extract</span><span class="p">)</span>
+        <span class="n">num_ftrs</span> <span class="o">=</span> <span class="n">model_ft</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span>
+        <span class="n">model_ft</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">num_ftrs</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">)</span>
+        <span class="n">input_size</span> <span class="o">=</span> <span class="mi">224</span>
+    
+    <span class="k">elif</span> <span class="n">model_name</span> <span class="o">==</span> <span class="s2">&quot;inceptionV3&quot;</span><span class="p">:</span>
+        <span class="c1">#--Inception v3</span>
+        
+        <span class="n">model_ft</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">inception_v3</span><span class="p">(</span><span class="n">pretrained</span><span class="o">=</span><span class="n">use_pretrained</span><span class="p">)</span>
+        <span class="n">set_parameter_requires_grad</span><span class="p">(</span><span class="n">model_ft</span><span class="p">,</span> <span class="n">feature_extract</span><span class="p">)</span>
+        
+        <span class="c1">#--Handle the auxilary net</span>
+        <span class="n">num_ftrs</span> <span class="o">=</span> <span class="n">model_ft</span><span class="o">.</span><span class="n">AuxLogits</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span>
+        <span class="n">model_ft</span><span class="o">.</span><span class="n">AuxLogits</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">num_ftrs</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">)</span>
+        
+        <span class="c1">#--Handle the primary net</span>
+        <span class="n">num_ftrs</span> <span class="o">=</span> <span class="n">model_ft</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span>
+        <span class="n">model_ft</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">num_ftrs</span><span class="p">,</span><span class="n">num_classes</span><span class="p">)</span>
+        <span class="n">input_size</span> <span class="o">=</span> <span class="mi">299</span>
+    
+    <span class="k">elif</span> <span class="n">model_name</span> <span class="o">==</span> <span class="s1">&#39;resnext50&#39;</span><span class="p">:</span>
+        <span class="c1">#--ResNeXT50</span>
+        
+        <span class="n">model_ft</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">resnext50_32x4d</span><span class="p">(</span><span class="n">pretrained</span><span class="o">=</span><span class="n">use_pretrained</span><span class="p">)</span>
+        <span class="n">set_parameter_requires_grad</span><span class="p">(</span><span class="n">model_ft</span><span class="p">,</span> <span class="n">feature_extract</span><span class="p">)</span>
+        
+        <span class="n">num_ftrs</span> <span class="o">=</span> <span class="n">model_ft</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span>
+        <span class="n">model_ft</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">num_ftrs</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">)</span>
+        
+        <span class="n">input_size</span> <span class="o">=</span> <span class="mi">224</span>
+        
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Invalid model name, exiting...&quot;</span><span class="p">)</span>
+        <span class="n">exit</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">model_ft</span><span class="p">,</span> <span class="n">input_size</span></div>
+
+
+<div class="viewcode-block" id="build_batch"><a class="viewcode-back" href="../../deepArchitecture.html#src.deepArchitecture.build_batch">[docs]</a><span class="k">def</span> <span class="nf">build_batch</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">data_object</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">indx</span><span class="p">,</span> <span class="n">mode</span> <span class="o">=</span> <span class="s1">&#39;train&#39;</span><span class="p">,</span> <span class="n">do_ts_images</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function will build the training or evaluation batch provided a dataloader.</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dataloader : dictionary</span>
+<span class="sd">        It is the training dataset.</span>
+<span class="sd">        </span>
+<span class="sd">    data_object : data_preparation object</span>
+<span class="sd">        This object is an instance of the data_preparation class.</span>
+
+<span class="sd">    batch_size : int</span>
+<span class="sd">        </span>
+<span class="sd">    indx : int</span>
+<span class="sd">        Starting indice of the batch.</span>
+<span class="sd">    </span>
+<span class="sd">    mode : string</span>
+<span class="sd">        It should be &#39;train&#39; or &#39;eval&#39; for training and evaluation respectively.</span>
+<span class="sd">    </span>
+<span class="sd">    do_ts_images : boolean, optional</span>
+<span class="sd">        States if data should be transformed into images. The default is False.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    triplet_size : int</span>
+<span class="sd">        The size of the triplets. It can be 5 or 10 and it will mean that we consider 5 or 10 positive and negative samples for training.</span>
+<span class="sd">    </span>
+<span class="sd">    anchors : numpy array of dimension  4</span>
+<span class="sd">        The anchors are stacked and look like (triplet_size,d,m,n) where d is the number of channels.</span>
+<span class="sd">    </span>
+<span class="sd">    positives : numpy array of dimension  4</span>
+<span class="sd">        The positive samples are stacked and look like (triplet_size*batch_size,d,m,n) where d is the number of channels.</span>
+<span class="sd">    </span>
+<span class="sd">    negatives : numpy array of dimension  4</span>
+<span class="sd">        The negative samples are stacked and look like (triplet_size*batch_size,d,m,n) where d is the number of channels.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">assert</span> <span class="n">mode</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;eval&#39;</span><span class="p">,</span><span class="s1">&#39;train&#39;</span><span class="p">],</span> <span class="s2">&quot;The mode has to be &#39;train&#39; or &#39;val&#39; ! Chech the entries to the function &#39;build_batch&#39;.&quot;</span>
+
+      
+    <span class="c1">#--Training mode</span>
+    <span class="k">if</span> <span class="n">mode</span><span class="o">==</span><span class="s1">&#39;train&#39;</span> <span class="p">:</span>
+    
+        <span class="c1">#--</span>
+        <span class="n">anchors</span> <span class="o">=</span>   <span class="p">[]</span>
+        <span class="n">positives</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">negatives</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1">#--</span>
+        <span class="n">positive_names</span> <span class="o">=</span>  <span class="p">[]</span>
+        <span class="n">negative_names</span> <span class="o">=</span>  <span class="p">[]</span>
+        
+        <span class="c1">#------------------------------Building batch--------------------------------------</span>
+        
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">anchor_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">dataloader</span><span class="o">.</span><span class="n">keys</span><span class="p">())):</span>
+            
+            <span class="c1">#--Getting the triplet size</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">triplet_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dataloader</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        	
+            <span class="c1">#--Fetching the data   </span>
+            <span class="k">if</span>  <span class="p">(</span><span class="n">i</span> <span class="o">&gt;=</span> <span class="n">indx</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">batch_size</span><span class="o">+</span><span class="n">indx</span><span class="p">):</span>
+                <span class="n">positive_names</span> <span class="o">=</span> <span class="n">positive_names</span> <span class="o">+</span> <span class="n">dataloader</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">negative_names</span> <span class="o">=</span> <span class="n">negative_names</span> <span class="o">+</span> <span class="n">dataloader</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                
+                <span class="c1">#--Transforming the anchor to images if required</span>
+                <span class="k">if</span> <span class="n">do_ts_images</span><span class="p">:</span> 
+                    <span class="n">dummy</span> <span class="o">=</span> <span class="n">data_object</span><span class="o">.</span><span class="n">timeseries_to_images</span><span class="p">(</span><span class="n">data_object</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">])</span>
+                    <span class="n">anchors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dummy</span><span class="p">)</span>
+                
+                <span class="k">else</span> <span class="p">:</span>     
+                    <span class="n">anchors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_object</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">anchor_name</span><span class="p">][</span><span class="kc">None</span><span class="p">,:,:])</span>
+                        
+            <span class="k">if</span>  <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">batch_size</span><span class="o">+</span><span class="n">i</span><span class="p">:</span> <span class="k">break</span> <span class="c1">#-- Breaking when we get out of the mini batch range</span>
+        
+        
+        <span class="c1">#--Transforming positive and negative samples ot images if required.</span>
+        <span class="k">if</span> <span class="n">do_ts_images</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">positive_names</span><span class="p">)):</span>
+                <span class="n">positive</span> <span class="o">=</span> <span class="n">data_object</span><span class="o">.</span><span class="n">timeseries_to_images</span><span class="p">(</span><span class="n">data_object</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">positive_names</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
+                <span class="n">negative</span> <span class="o">=</span> <span class="n">data_object</span><span class="o">.</span><span class="n">timeseries_to_images</span><span class="p">(</span><span class="n">data_object</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">negative_names</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
+                <span class="n">positives</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">positive</span><span class="p">)</span>
+                <span class="n">negatives</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">negative</span><span class="p">)</span> 
+         
+        <span class="c1">#--In this case, the data is 2D, we need to add another axis at the begining i.e shape will be (1,m,n).</span>
+        <span class="k">else</span> <span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">positive_names</span><span class="p">)):</span>
+                <span class="n">positive</span> <span class="o">=</span> <span class="n">data_object</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">positive_names</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+                <span class="n">negative</span> <span class="o">=</span> <span class="n">data_object</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">negative_names</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+                <span class="n">positives</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">positive</span><span class="p">[</span><span class="kc">None</span><span class="p">,:,:])</span>
+                <span class="n">negatives</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">negative</span><span class="p">[</span><span class="kc">None</span><span class="p">,:,:])</span>   
+          
+                
+        <span class="n">anchors</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">anchors</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">positives</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">positives</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">negatives</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">negatives</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        
+        <span class="c1">#--Free up some memory</span>
+        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">triplet_size</span><span class="p">,</span> <span class="n">anchors</span><span class="p">,</span> <span class="n">positives</span><span class="p">,</span> <span class="n">negatives</span>
+    
+    <span class="c1">#--- eval mode</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;eval&#39;</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1">#--Building batch</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">motion_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">dataloader</span><span class="o">.</span><span class="n">keys</span><span class="p">())):</span>
+                
+            <span class="k">if</span>  <span class="p">(</span><span class="n">i</span> <span class="o">&gt;=</span> <span class="n">indx</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">batch_size</span><span class="o">+</span><span class="n">indx</span><span class="p">):</span>
+                
+                <span class="k">if</span>  <span class="n">do_ts_images</span><span class="p">:</span>
+                    <span class="n">ts_images</span> <span class="o">=</span> <span class="n">data_object</span><span class="o">.</span><span class="n">timeseries_to_images</span><span class="p">(</span><span class="n">data_object</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">motion_name</span><span class="p">])</span>
+                    <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ts_images</span><span class="p">)</span>
+                    <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">motion_name</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_object</span><span class="o">.</span><span class="n">motion_word_dataset</span><span class="p">[</span><span class="n">motion_name</span><span class="p">][</span><span class="kc">None</span><span class="p">,:,:])</span>
+                    <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">motion_name</span><span class="p">)</span>
+                
+            <span class="k">if</span>  <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">batch_size</span><span class="o">+</span><span class="n">i</span><span class="p">:</span> <span class="k">break</span> <span class="c1">#-- Breaking when we get out of the mini batch range</span>
+
+                
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">names</span></div>
+    
+    
+            
+<div class="viewcode-block" id="train_model"><a class="viewcode-back" href="../../deepArchitecture.html#src.deepArchitecture.train_model">[docs]</a><span class="k">def</span> <span class="nf">train_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">model_name</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">data_object</span><span class="p">,</span> <span class="n">transformer</span><span class="p">,</span>
+                <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
+                <span class="n">feature_extract</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">criterion</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">TripletMarginLoss</span><span class="p">(</span><span class="n">margin</span><span class="o">=</span><span class="mf">0.2</span><span class="p">),</span>
+                <span class="n">batch_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+                <span class="n">num_epochs</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+                <span class="n">do_ts_images</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">use_multi_gpus</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    model : pytorch neural network object</span>
+<span class="sd">                </span>
+<span class="sd">    dataloader : dictionary</span>
+<span class="sd">        It is the training dataset.</span>
+<span class="sd">        </span>
+<span class="sd">    data_object : data_preparation object</span>
+<span class="sd">        This object is an instance of the data_preparation class.</span>
+<span class="sd">        </span>
+<span class="sd">    transformer : function</span>
+<span class="sd">        This function will transform the data to fit the network requirement.</span>
+<span class="sd">        </span>
+<span class="sd">    learning_rate : float, optional</span>
+<span class="sd">        The default is 0.001.</span>
+<span class="sd">        </span>
+<span class="sd">    feature_extract : Boolean, optional</span>
+<span class="sd">        Tells whether we&#39;re only training the last fully connected layer or not. The default is True.</span>
+<span class="sd">        </span>
+<span class="sd">    criterion : loss function, optional</span>
+<span class="sd">        We train using a triplet loss function ie nn.TripletMarginLoss(margin=0.2).</span>
+<span class="sd">        </span>
+<span class="sd">    batch_size : int, optional</span>
+<span class="sd">        The default is 15.</span>
+<span class="sd">        </span>
+<span class="sd">    num_epochs : int, optional</span>
+<span class="sd">        The default is 15.</span>
+<span class="sd">        </span>
+<span class="sd">    do_ts_images : Boolean, optional</span>
+<span class="sd">        It says whether the input should be transformed into images or not. The default is False.</span>
+
+<span class="sd">    use_multi_gpus : Boolean, optional</span>
+<span class="sd">        States if multiple gpus are avaible and thus should be used. The default is False. Due to some issues, the &#39;inceptionV3 model&#39; can only be trained on one gpu. check this for more info https://github.com/pytorch/vision/issues/1048 .</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    model : trained pytorch neural network object</span>
+<span class="sd">    loss_history : array of floats</span>
+<span class="sd">        All losses for each epoch</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">loss_history</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+    
+    <span class="c1">#--Setting the flag is_inception</span>
+    <span class="k">if</span> <span class="n">model_name</span> <span class="o">==</span> <span class="s1">&#39;inceptionV3&#39;</span> <span class="p">:</span> 
+        <span class="n">is_inception</span> <span class="o">=</span><span class="kc">True</span>
+        <span class="n">use_multi_gpus</span> <span class="o">=</span> <span class="kc">False</span> <span class="c1">#-Do not use multiple gpus with inception</span>
+    <span class="k">else</span> <span class="p">:</span> 
+        <span class="n">is_inception</span> <span class="o">=</span> <span class="kc">False</span>
+    
+    <span class="c1">#--Doing parallel training with requirements are met</span>
+    <span class="k">if</span> <span class="n">use_multi_gpus</span> <span class="ow">and</span>  <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1"> We are using </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span><span class="si">}</span><span class="s1"> GPUs.&#39;</span><span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">DataParallel</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+    
+    <span class="c1">#--Model to device</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    
+    <span class="c1">#---Get params to update</span>
+    <span class="n">params_to_update</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span>
+    
+    <span class="k">if</span> <span class="n">feature_extract</span><span class="p">:</span>
+        <span class="n">params_to_update</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span><span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">params_to_update</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+
+    <span class="c1">#---Set model to training mode</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">params_to_update</span><span class="p">,</span> <span class="n">lr</span> <span class="o">=</span> <span class="n">learning_rate</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"> Epoch </span><span class="si">{}</span><span class="s1">/</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">epoch</span><span class="p">,</span> <span class="n">num_epochs</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;-&#39;</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+
+        <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+        
+        <span class="c1">#--Iterate over data using a mini_batch.</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">dataloader</span><span class="p">),</span> <span class="n">batch_size</span><span class="p">):</span>
+            
+            <span class="n">triplet_size</span><span class="p">,</span> <span class="n">anchors</span><span class="p">,</span> <span class="n">positives</span><span class="p">,</span> <span class="n">negatives</span> <span class="o">=</span> <span class="n">build_batch</span><span class="p">(</span><span class="n">dataloader</span> <span class="o">=</span> <span class="n">dataloader</span><span class="p">,</span><span class="n">data_object</span> <span class="o">=</span> <span class="n">data_object</span><span class="p">,</span>
+                                                                      <span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch_size</span> <span class="p">,</span> <span class="n">indx</span> <span class="o">=</span> <span class="n">b</span><span class="p">,</span>  <span class="n">mode</span> <span class="o">=</span><span class="s1">&#39;train&#39;</span><span class="p">,</span>
+                                                                      <span class="n">do_ts_images</span> <span class="o">=</span> <span class="n">do_ts_images</span><span class="p">)</span>
+            
+            <span class="c1">#print(triplet_size,anchors.shape,positives.shape,negatives.shape)</span>
+                          
+            <span class="c1">#--If len(dataloader) is not divisible by batch_size,</span>
+            <span class="c1">#--there will be an issue when b reaches len(dataloader) so we reset the batch_size</span>
+            <span class="n">batch_size</span> <span class="o">=</span> <span class="n">anchors</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> 
+        
+            <span class="c1">#--- Expanding across channels if it has one channel i.e anchors.shape[1]==1 or do_ts_images==False</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">do_ts_images</span> <span class="ow">or</span> <span class="n">anchors</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">==</span><span class="mi">1</span> <span class="p">:</span>
+
+                <span class="n">anchors</span>  <span class="o">=</span>  <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">anchors</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">positives</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">positives</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">negatives</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">negatives</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">anchors</span>  <span class="o">=</span>  <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">anchors</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="n">positives</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">positives</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="n">negatives</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">negatives</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            
+            <span class="c1">#--Getting transformed data</span>
+            <span class="n">anchors</span>   <span class="o">=</span>  <span class="n">transformer</span><span class="p">(</span><span class="n">anchors</span><span class="p">)</span>
+            <span class="n">positives</span> <span class="o">=</span>  <span class="n">transformer</span><span class="p">(</span><span class="n">positives</span><span class="p">)</span>
+            <span class="n">negatives</span> <span class="o">=</span>  <span class="n">transformer</span><span class="p">(</span><span class="n">negatives</span><span class="p">)</span>
+
+            <span class="c1"># zero the parameter gradients</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+
+            <span class="c1">#--------------------------forward pass-----------------------------------------</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="n">anchors</span><span class="p">,</span> <span class="n">positives</span><span class="p">,</span> <span class="n">negatives</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">is_inception</span> <span class="p">:</span>
+                <span class="k">if</span> <span class="n">use_multi_gpus</span> <span class="ow">and</span>  <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">outputs</span><span class="p">,</span> <span class="n">aux_outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                    
+                <span class="k">else</span> <span class="p">:</span>
+                    <span class="n">outputs</span><span class="p">,</span> <span class="n">aux_outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+
+                <span class="c1">#----Repeating the anchor value to have triplets of same size (anchor,positive,negative)</span>
+                <span class="n">anchor_embedding</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="n">aux_outputs</span><span class="p">[:</span><span class="n">batch_size</span><span class="p">],</span>
+                                                           <span class="n">repeats</span><span class="o">=</span><span class="n">triplet_size</span><span class="p">,</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                
+                <span class="n">positives_embedding</span> <span class="o">=</span> <span class="n">aux_outputs</span><span class="p">[</span><span class="n">batch_size</span><span class="p">:(</span><span class="n">triplet_size</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">batch_size</span><span class="p">]</span>
+                <span class="n">negatives_embedding</span> <span class="o">=</span> <span class="n">aux_outputs</span><span class="p">[</span><span class="o">-</span><span class="n">triplet_size</span><span class="o">*</span><span class="n">batch_size</span><span class="p">:]</span>
+                <span class="n">loss1</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">anchor_embedding</span><span class="p">,</span><span class="n">positives_embedding</span><span class="p">,</span><span class="n">negatives_embedding</span><span class="p">)</span>   
+                
+                <span class="c1">#-----</span>
+                <span class="n">anchor_embedding</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="n">outputs</span><span class="p">[:</span><span class="n">batch_size</span><span class="p">],</span>
+                                                           <span class="n">repeats</span><span class="o">=</span><span class="n">triplet_size</span><span class="p">,</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                
+                <span class="n">positives_embedding</span> <span class="o">=</span> <span class="n">outputs</span><span class="p">[</span><span class="n">batch_size</span><span class="p">:(</span><span class="n">triplet_size</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">batch_size</span><span class="p">]</span>
+                <span class="n">negatives_embedding</span> <span class="o">=</span> <span class="n">outputs</span><span class="p">[</span><span class="o">-</span><span class="n">triplet_size</span><span class="o">*</span><span class="n">batch_size</span><span class="p">:]</span>
+                <span class="n">loss2</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">anchor_embedding</span><span class="p">,</span><span class="n">positives_embedding</span><span class="p">,</span><span class="n">negatives_embedding</span><span class="p">)</span>   
+                <span class="c1">#-----</span>
+                
+                <span class="n">loss</span> <span class="o">=</span> <span class="n">loss1</span> <span class="o">+</span> <span class="mf">0.4</span><span class="o">*</span><span class="n">loss2</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+                
+                <span class="c1">#--</span>
+                <span class="n">anchor_embedding</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="n">outputs</span><span class="p">[:</span><span class="n">batch_size</span><span class="p">],</span>
+                                                           <span class="n">repeats</span><span class="o">=</span><span class="n">triplet_size</span><span class="p">,</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                
+                <span class="n">positives_embedding</span> <span class="o">=</span> <span class="n">outputs</span><span class="p">[</span><span class="n">batch_size</span><span class="p">:(</span><span class="n">triplet_size</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">batch_size</span><span class="p">]</span>
+                <span class="n">negatives_embedding</span> <span class="o">=</span> <span class="n">outputs</span><span class="p">[</span><span class="o">-</span><span class="n">triplet_size</span><span class="o">*</span><span class="n">batch_size</span><span class="p">:]</span>
+
+                <span class="c1">#print(anchor_embedding.shape,positives_embedding.shape,negatives_embedding.shape)</span>
+
+                <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">anchor_embedding</span><span class="p">,</span><span class="n">positives_embedding</span><span class="p">,</span><span class="n">negatives_embedding</span><span class="p">)</span>  
+            
+            <span class="c1">#--appending the loss</span>
+            <span class="n">loss_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+            
+            <span class="c1">#--backward pass + optimize</span>
+            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            
+            <span class="c1">#---------------------- Outputting progress ---------------</span>
+            <span class="n">count</span> <span class="o">+=</span> <span class="n">batch_size</span>
+            <span class="k">if</span> <span class="n">count</span> <span class="o">%</span> <span class="mi">100</span><span class="o">*</span><span class="n">batch_size</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">:</span>
+            	<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> The process is at : </span><span class="si">{</span><span class="mi">100</span><span class="o">*</span><span class="n">count</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">dataloader</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+            
+            <span class="c1">#--Collecting garbage to free up memory.</span>
+            <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+            
+        <span class="c1">#--------------- End epoch ----------------------------------------   </span>
+        <span class="c1">#--Saving a checkpoint  state dictionary</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;./../data/models/model_</span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s1">_RecordingParam_tsImages_</span><span class="si">{</span><span class="n">do_ts_images</span><span class="si">}</span><span class="s1">_includeNoisy_</span><span class="si">{</span><span class="n">data_object</span><span class="o">.</span><span class="n">include_noisy</span><span class="si">}</span><span class="s1">.pth&#39;</span>
+        <span class="k">if</span> <span class="n">use_multi_gpus</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">({</span>
+                <span class="s1">&#39;epoch&#39;</span><span class="p">:</span> <span class="n">epoch</span><span class="p">,</span>
+                <span class="s1">&#39;model_state_dict&#39;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+                <span class="s1">&#39;optimizer_state_dict&#39;</span><span class="p">:</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+                <span class="s1">&#39;loss&#39;</span><span class="p">:</span> <span class="n">loss</span><span class="p">,</span>
+                            <span class="p">},</span> <span class="n">path</span><span class="p">)</span>
+             
+        <span class="k">else</span> <span class="p">:</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">({</span>
+                <span class="s1">&#39;epoch&#39;</span><span class="p">:</span> <span class="n">epoch</span><span class="p">,</span>
+                <span class="s1">&#39;model_state_dict&#39;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+                <span class="c1">#&#39;optimizer_state_dict&#39;: optimizer.state_dict(),</span>
+                <span class="s1">&#39;loss&#39;</span><span class="p">:</span> <span class="n">loss</span><span class="p">,</span>
+                            <span class="p">},</span> <span class="n">path</span><span class="p">)</span>   
+             
+    <span class="k">return</span> <span class="n">model</span><span class="p">,</span> <span class="n">loss_history</span></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.deepArchitecture</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>

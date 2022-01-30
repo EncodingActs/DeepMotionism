@@ -1,0 +1,233 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deep network Architecture &#8212; IUI 2022 submission 1082 documentation</title>
+    <link rel="stylesheet" href="_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Similarity Calculation" href="Similarity.html" />
+    <link rel="prev" title="Welcome to “Retrieval through embodiment” documentation!" href="index.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="Similarity.html" title="Similarity Calculation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to “Retrieval through embodiment” documentation!"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Deep network Architecture</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-src.deepArchitecture">
+<span id="deep-network-architecture"></span><h1>Deep network Architecture<a class="headerlink" href="#module-src.deepArchitecture" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="src.deepArchitecture.build_batch">
+<code class="sig-prename descclassname">src.deepArchitecture.</code><code class="sig-name descname">build_batch</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dataloader</span></em>, <em class="sig-param"><span class="n">data_object</span></em>, <em class="sig-param"><span class="n">batch_size</span></em>, <em class="sig-param"><span class="n">indx</span></em>, <em class="sig-param"><span class="n">mode</span><span class="o">=</span><span class="default_value">'train'</span></em>, <em class="sig-param"><span class="n">do_ts_images</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/deepArchitecture.html#build_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.deepArchitecture.build_batch" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function will build the training or evaluation batch provided a dataloader.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataloader</strong> (<em>dictionary</em>) – It is the training dataset.</p></li>
+<li><p><strong>data_object</strong> (<em>data_preparation object</em>) – This object is an instance of the data_preparation class.</p></li>
+<li><p><strong>batch_size</strong> (<em>int</em>) – </p></li>
+<li><p><strong>indx</strong> (<em>int</em>) – Starting indice of the batch.</p></li>
+<li><p><strong>mode</strong> (<em>string</em>) – It should be ‘train’ or ‘eval’ for training and evaluation respectively.</p></li>
+<li><p><strong>do_ts_images</strong> (<em>boolean</em><em>, </em><em>optional</em>) – States if data should be transformed into images. The default is False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>triplet_size</strong> (<em>int</em>) – The size of the triplets. It can be 5 or 10 and it will mean that we consider 5 or 10 positive and negative samples for training.</p></li>
+<li><p><strong>anchors</strong> (<em>numpy array of dimension  4</em>) – The anchors are stacked and look like (triplet_size,d,m,n) where d is the number of channels.</p></li>
+<li><p><strong>positives</strong> (<em>numpy array of dimension  4</em>) – The positive samples are stacked and look like (triplet_size*batch_size,d,m,n) where d is the number of channels.</p></li>
+<li><p><strong>negatives</strong> (<em>numpy array of dimension  4</em>) – The negative samples are stacked and look like (triplet_size*batch_size,d,m,n) where d is the number of channels.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.deepArchitecture.initialize_model">
+<code class="sig-prename descclassname">src.deepArchitecture.</code><code class="sig-name descname">initialize_model</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model_name</span><span class="o">=</span><span class="default_value">'resnet18'</span></em>, <em class="sig-param"><span class="n">num_classes</span><span class="o">=</span><span class="default_value">1000</span></em>, <em class="sig-param"><span class="n">feature_extract</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">use_pretrained</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/deepArchitecture.html#initialize_model"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.deepArchitecture.initialize_model" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_name</strong> (<em>string</em><em>, </em><em>optional</em>) – It can be “resnet18”,”resnext50” or “inceptionV3”. The default is ‘resnet18’.</p></li>
+<li><p><strong>num_classes</strong> (<em>int</em><em>, </em><em>optional</em>) – It represents the desired output embedding dimension. The default is 1000.</p></li>
+<li><p><strong>feature_extract</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – Tells if we will only be training on the last fully connected layer or not. The default is True.</p></li>
+<li><p><strong>use_pretrained</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – If True, a pretrained model will be loaded for transfer learning purposes. The default is True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>model_ft</strong> (<em>torchvision neural network</em>)</p></li>
+<li><p><strong>input_size</strong> (<em>int</em>) – The adequate input size for the desired network. The networks take as inputs of shape (3,input_size,input_size).</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.deepArchitecture.set_parameter_requires_grad">
+<code class="sig-prename descclassname">src.deepArchitecture.</code><code class="sig-name descname">set_parameter_requires_grad</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model</span></em>, <em class="sig-param"><span class="n">feature_extracting</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/deepArchitecture.html#set_parameter_requires_grad"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.deepArchitecture.set_parameter_requires_grad" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function will freeze the parameters of model if feature_extracting == True.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<em>pytorch neural network object</em>) – </p></li>
+<li><p><strong>feature_extracting</strong> (<em>Boolean</em>) – This should be ‘True’ if we just want to train the last fully connected layer.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.deepArchitecture.train_model">
+<code class="sig-prename descclassname">src.deepArchitecture.</code><code class="sig-name descname">train_model</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model</span></em>, <em class="sig-param"><span class="n">model_name</span></em>, <em class="sig-param"><span class="n">dataloader</span></em>, <em class="sig-param"><span class="n">data_object</span></em>, <em class="sig-param"><span class="n">transformer</span></em>, <em class="sig-param"><span class="n">learning_rate</span><span class="o">=</span><span class="default_value">0.001</span></em>, <em class="sig-param"><span class="n">feature_extract</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">criterion</span><span class="o">=</span><span class="default_value">TripletMarginLoss()</span></em>, <em class="sig-param"><span class="n">batch_size</span><span class="o">=</span><span class="default_value">15</span></em>, <em class="sig-param"><span class="n">num_epochs</span><span class="o">=</span><span class="default_value">15</span></em>, <em class="sig-param"><span class="n">do_ts_images</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">use_multi_gpus</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/deepArchitecture.html#train_model"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.deepArchitecture.train_model" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<em>pytorch neural network object</em>) – </p></li>
+<li><p><strong>dataloader</strong> (<em>dictionary</em>) – It is the training dataset.</p></li>
+<li><p><strong>data_object</strong> (<em>data_preparation object</em>) – This object is an instance of the data_preparation class.</p></li>
+<li><p><strong>transformer</strong> (<em>function</em>) – This function will transform the data to fit the network requirement.</p></li>
+<li><p><strong>learning_rate</strong> (<em>float</em><em>, </em><em>optional</em>) – The default is 0.001.</p></li>
+<li><p><strong>feature_extract</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – Tells whether we’re only training the last fully connected layer or not. The default is True.</p></li>
+<li><p><strong>criterion</strong> (<em>loss function</em><em>, </em><em>optional</em>) – We train using a triplet loss function ie nn.TripletMarginLoss(margin=0.2).</p></li>
+<li><p><strong>batch_size</strong> (<em>int</em><em>, </em><em>optional</em>) – The default is 15.</p></li>
+<li><p><strong>num_epochs</strong> (<em>int</em><em>, </em><em>optional</em>) – The default is 15.</p></li>
+<li><p><strong>do_ts_images</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – It says whether the input should be transformed into images or not. The default is False.</p></li>
+<li><p><strong>use_multi_gpus</strong> (<em>Boolean</em><em>, </em><em>optional</em>) – States if multiple gpus are avaible and thus should be used. The default is False. Due to some issues, the ‘inceptionV3 model’ can only be trained on one gpu. check this for more info <a class="reference external" href="https://github.com/pytorch/vision/issues/1048">https://github.com/pytorch/vision/issues/1048</a> .</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>model</strong> (<em>trained pytorch neural network object</em>)</p></li>
+<li><p><strong>loss_history</strong> (<em>array of floats</em>) – All losses for each epoch</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.deepArchitecture.transform_data">
+<code class="sig-prename descclassname">src.deepArchitecture.</code><code class="sig-name descname">transform_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">input_size</span></em>, <em class="sig-param"><span class="n">is_ts_images</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/src/deepArchitecture.html#transform_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#src.deepArchitecture.transform_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function will transform the input data to meet the requirements of the neural network. It performs : normalization, random erasing , random resize cropping.The normalization uses hardcoded values given at <a class="reference external" href="https://pytorch.org/tutorials/beginner/finetuning_torchvision_models_tutorial.html">https://pytorch.org/tutorials/beginner/finetuning_torchvision_models_tutorial.html</a> .</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_size</strong> (<em>int</em>) – The desired input size of the network. The value to be included will be given by the function ‘initialize_model’.</p></li>
+<li><p><strong>is_ts_images</strong> (<em>boolean</em><em>, </em><em>optional</em>) – This states whether the data to be transformed consists of images or they have 3 channels. The default is False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>transformer</strong> – This function will transform the data to fit the network requirement.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>function</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Welcome to “Retrieval through embodiment” documentation!</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="Similarity.html"
+                        title="next chapter">Similarity Calculation</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/deepArchitecture.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="Similarity.html" title="Similarity Calculation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to “Retrieval through embodiment” documentation!"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">IUI 2022 submission 1082 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Deep network Architecture</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright IUI 2022 submission 1082.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.2.1.
+    </div>
+  </body>
+</html>
