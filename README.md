@@ -3,7 +3,7 @@
 To allow users to more easily interact with our code, we have provided a sphinx documentation which is an interactive documentation that can be visualize in a browser.
 In order to launch it, simply double click on "Documentation.lnk" in the /Doc.
 
-## DeepMotionism is licensed under the MIT License
+* DeepMotionism is licensed under the MIT License *
 
 # Description of directories
 
