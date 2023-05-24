@@ -10,30 +10,24 @@ The DeepMotionism is licensed under the terms of the MIT license.
 > Or, see preprint on [ResearchGate](https://www.researchgate.net/publication/370497096_Unlocking_a_multimodal_archive_of_Southern_Chinese_martial_arts_through_embodied_cues)
 
 
-## Source code descriptions 
-
-An interactive Sphinx documentation is available at /Doc/Documentation.lnk, which one can launch via a click and read in the browser.
+## Overview 
 
 
 ### Introduction to directories
 
--- In the directory "./data/bvh/" : 
-	- We have all the bvh files that are being considered for this project
+- "./docs/" contains an interactive documentation of the source codes. Launch it by opening "./docs/build/html/index.html" and explore the content in your browser .
 
--- In the directory "./data/csv/" : 
-	-  We have all the joint-rotation converion of the bvh files stated above.
 
--- In the directory "./data/datasets/" we have : 
-	- "datasetHighVariance" : the preprocessed mocap data where the features with highest variance have bee selected.
-	- "motion_words" : the motion words extracted from all the joint-rotation conversions of the mocap data available at "./data/csv/"
-	- training_dataset_5 : the training dataset where 5 positive and negative examples have been selected for each motion word.
+- "./src/" contains all the source codes (python scripts) developed for this project.
 
--- In the directory "./docs/":
-	- We have the documentation of the project.
-	- To visualize it, open the file at "./docs/build/html/index.html".
+- "./data/datasets/" contains : 
+	1. "datasetHighVariance" : the preprocessed mocap data where the features with highest variance have bee selected.
+	2. "motion_words" : the motion words extracted from all the joint-rotation conversions of the mocap data available at "./data/csv/"
+	3. training_dataset_5 : the training dataset where 5 positive and negative examples have been selected for each motion word.
 
--- In the directory "./src/":
-	- We have all the source python scripts used for the project.
+- "./data/bvh/" contains all the bvh files considered for this project
+
+- "./data/csv/" contains all the joint-rotation converion of the bvh files stated above.
 	
 
 ### Data preprocessing
