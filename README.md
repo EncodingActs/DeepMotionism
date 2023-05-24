@@ -8,7 +8,8 @@ In order to launch it, simply double click on "Documentation.lnk" in the /Doc.
 ## Related Article
 
 > Hou, Y., Seydou, F.M. and Kenderdine, S. (2023), "Unlocking a multimodal archive of Southern Chinese martial arts through embodied cues", Journal of Documentation. [https://doi.org/10.1108/JD-01-2022-0027](https://doi.org/10.1108/JD-01-2022-0027) 
-> Or, see [preprint](https://www.researchgate.net/publication/370497096_Unlocking_a_multimodal_archive_of_Southern_Chinese_martial_arts_through_embodied_cues)
+
+> Or, see preprint on [ResearchGate](https://www.researchgate.net/publication/370497096_Unlocking_a_multimodal_archive_of_Southern_Chinese_martial_arts_through_embodied_cues)
 
 ## Description of directories
 
