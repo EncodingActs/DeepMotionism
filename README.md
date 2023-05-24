@@ -9,13 +9,13 @@ The DeepMotionism is licensed under the terms of the MIT license.
 
 > Or, see preprint on [ResearchGate](https://www.researchgate.net/publication/370497096_Unlocking_a_multimodal_archive_of_Southern_Chinese_martial_arts_through_embodied_cues)
 
-To allow users to more easily interact with our code, we have provided a sphinx documentation which is an interactive documentation that can be visualize in a browser.
-In order to launch it, simply double click on "Documentation.lnk" in the /Doc.
+
+## Source code descriptions 
+
+An interactive Sphinx documentation is available at /Doc/Documentation.lnk, which one can launch via a click and read in the browser.
 
 
-## Source code description 
-
-### Directories
+### Introduction to directories
 
 -- In the directory "./data/bvh/" : 
 	- We have all the bvh files that are being considered for this project
