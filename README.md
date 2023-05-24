@@ -1,17 +1,21 @@
 # DeepMotionism
 
-To allow users to more easily interact with our code, we have provided a sphinx documentation which is an interactive documentation that can be visualize in a browser.
-In order to launch it, simply double click on "Documentation.lnk" in the /Doc.
+### License
+The DeepMotionism is licensed under the terms of the MIT license.
 
-**DeepMotionism is licensed under the MIT License**
-
-## Related Article
+### Related Article
 
 > Hou, Y., Seydou, F.M. and Kenderdine, S. (2023), "Unlocking a multimodal archive of Southern Chinese martial arts through embodied cues", Journal of Documentation. [https://doi.org/10.1108/JD-01-2022-0027](https://doi.org/10.1108/JD-01-2022-0027) 
 
 > Or, see preprint on [ResearchGate](https://www.researchgate.net/publication/370497096_Unlocking_a_multimodal_archive_of_Southern_Chinese_martial_arts_through_embodied_cues)
 
-## Description of directories
+To allow users to more easily interact with our code, we have provided a sphinx documentation which is an interactive documentation that can be visualize in a browser.
+In order to launch it, simply double click on "Documentation.lnk" in the /Doc.
+
+
+## Source code description 
+
+### Directories
 
 -- In the directory "./data/bvh/" : 
 	- We have all the bvh files that are being considered for this project
@@ -31,7 +35,8 @@ In order to launch it, simply double click on "Documentation.lnk" in the /Doc.
 -- In the directory "./src/":
 	- We have all the source python scripts used for the project.
 	
-## Data preprocessing
+
+### Data preprocessing
 
 -- .bvh files parsing :
     - The MoCap data in bvh format have been parsed using the python library "bvhtoolbox". We extracted the joint rotation angle that we save in csv files.
@@ -44,11 +49,11 @@ In order to launch it, simply double click on "Documentation.lnk" in the /Doc.
     - Our model assume that there is only one person in the video ! If there are multiple people then one should think about using "OpenPose" to extract the keypoints and then convert it to a bvh files as stated at https://github.com/Shimingyi/MotioNet .
     
     
-## Requirements
+### Requirements
 Simply run "pip install -r requirements.txt" to get all the libraries and their dependencies necessary to run the code.
 
 
-## Running the GUI
+### Running the GUI
 To run the GUI, simply run this command "streamlit run gui.py" from the command line after "cd ./src/".
 The GUI is quite straightforward and allows to play the videos
 
