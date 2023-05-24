@@ -1,0 +1,10 @@
+Surfacebook
+Intel i5 ,2.6 GHz, 8Gb RAM  --> Average notebook
+Resnet18 : 
+
+	No images :	less than 5 minutes
+
+Resnext50 : 
+	No images :	around 15 minutes
+	MTF    :	around 30 minutes
+	Recurrence :	around 20 minutes	

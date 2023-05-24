@@ -1,0 +1,13 @@
+#!/bin/bash -l
+#SBATCH --time 12:00:00
+#SBATCH --nodes=1
+#SBATCH --account=master
+#SBATCH --qos=gpu_free
+#SBATCH --gres=gpu:2
+#SBATCH --partition=gpu
+
+module purge
+module load gcc/8.4.0 python/3.7.7
+
+srun python ./training_motionWords.py
+

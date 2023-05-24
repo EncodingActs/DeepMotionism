@@ -1,0 +1,9 @@
+Openpose
+	Runtime : 
+		 Cheung_Sheung_Hing_LamGarGau.mp4, 1175 frames, 47seconds length video. --> 7h35 minutes or 27'329 seconds.
+
+		Lui_Hok_Keung_ChingLungTamHakkaHungKuen.mp4, 1850 frames, 1min14s --->
+
+Posenet :
+
+For all videos : 20minutes
