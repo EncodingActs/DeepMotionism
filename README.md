@@ -10,7 +10,7 @@ The DeepMotionism is licensed under the terms of the MIT license.
 > Or, see preprint on [ResearchGate](https://www.researchgate.net/publication/370497096_Unlocking_a_multimodal_archive_of_Southern_Chinese_martial_arts_through_embodied_cues)
 
 
-## Overview 
+---
 
 
 ### Introduction to directories
