@@ -3,12 +3,18 @@
 ### License
 The DeepMotionism is licensed under the terms of the MIT license.
 
-### Related Article
+### Suggested citation:
 
 > Hou, Y., Seydou, F.M. and Kenderdine, S. (2023), "Unlocking a multimodal archive of Southern Chinese martial arts through embodied cues", Journal of Documentation. [https://doi.org/10.1108/JD-01-2022-0027](https://doi.org/10.1108/JD-01-2022-0027) 
 
-> Or, see preprint on [ResearchGate](https://www.researchgate.net/publication/370497096_Unlocking_a_multimodal_archive_of_Southern_Chinese_martial_arts_through_embodied_cues)
-
+BibTeX
+> @article{hou2023unlocking,
+  title={Unlocking a multimodal archive of Southern Chinese martial arts through embodied cues},
+  author={Hou, Yumeng and Seydou, Fadel Mamar and Kenderdine, Sarah},
+  journal={Journal of Documentation},
+  year={2023},
+  publisher={Emerald Publishing Limited}
+}
 
 ---
 
